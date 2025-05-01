@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "CutoffRNApp",
+    "slug": "cutoff-rn-app",
+    "version": "1.0.0",
+    "sdkVersion": "50.0.0",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cutoff.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "package": "com.cutoff.app"
+    },
+    "scheme": "cutoff",
+    "widgets": [
+      {
+        "name": "CutoffWidget",
+        "filename": "./CutoffWidget.tsx",
+        "widgetFamily": [
+          "systemSmall",
+          "systemMedium"
+        ]
+      }
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "08fe3475-ba4f-43c8-a11a-ce7f710b7dc6"
+      }
+    }
+  }
+}
