@@ -10,6 +10,9 @@ import {
   PanGestureHandler,
   PinchGestureHandler,
   RotationGestureHandler,
+  PanGestureHandlerGestureEvent,
+  PinchGestureHandlerGestureEvent,
+  RotationGestureHandlerGestureEvent,
 } from 'react-native-gesture-handler';
 
 type Props = {
@@ -34,16 +37,19 @@ const DraggableResizableTile: React.FC<Props> = ({
   const rotateZ = useSharedValue(rotation);
 
   // Drag handler
-  const panHandler = useAnimatedGestureHandler({
-    onStart: (_, ctx: any) => {
+  const panHandler = useAnimatedGestureHandler<PanGestureHandlerGestureEvent, {startX: number, startY: number}>({
+    onStart: (_, ctx) => {
+      'worklet';
       ctx.startX = transX.value;
       ctx.startY = transY.value;
     },
-    onActive: (event, ctx: any) => {
+    onActive: (event, ctx) => {
+      'worklet';
       transX.value = ctx.startX + event.translationX;
       transY.value = ctx.startY + event.translationY;
     },
     onEnd: () => {
+      'worklet';
       runOnJS(onUpdate)({
         x: transX.value,
         y: transY.value,
@@ -55,11 +61,13 @@ const DraggableResizableTile: React.FC<Props> = ({
   });
 
   // Pinch handler for resizing
-  const pinchHandler = useAnimatedGestureHandler({
+  const pinchHandler = useAnimatedGestureHandler<PinchGestureHandlerGestureEvent>({
     onActive: (event) => {
+      'worklet';
       scale.value = event.scale;
     },
     onEnd: () => {
+      'worklet';
       runOnJS(onUpdate)({
         x: transX.value,
         y: transY.value,
@@ -71,11 +79,13 @@ const DraggableResizableTile: React.FC<Props> = ({
   });
 
   // Rotation handler
-  const rotationHandler = useAnimatedGestureHandler({
+  const rotationHandler = useAnimatedGestureHandler<RotationGestureHandlerGestureEvent>({
     onActive: (event) => {
+      'worklet';
       rotateZ.value = rotation + event.rotation;
     },
     onEnd: () => {
+      'worklet';
       runOnJS(onUpdate)({
         x: transX.value,
         y: transY.value,
@@ -87,19 +97,22 @@ const DraggableResizableTile: React.FC<Props> = ({
   });
 
   // Animated style
-  const animatedStyle = useAnimatedStyle(() => ({
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    width: width * scale.value,
-    height: height * scale.value,
-    transform: [
-      { translateX: transX.value },
-      { translateY: transY.value },
-      { scale: scale.value },
-      { rotateZ: `${rotateZ.value}rad` },
-    ],
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';  
+    return {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      width: width * scale.value,
+      height: height * scale.value,
+      transform: [
+        { translateX: transX.value },
+        { translateY: transY.value },
+        { scale: scale.value },
+        { rotateZ: `${rotateZ.value}rad` },
+      ] as any, // Type assertion to avoid TypeScript errors with transform properties
+    };
+  });
 
   return (
     <PanGestureHandler onGestureEvent={panHandler}>

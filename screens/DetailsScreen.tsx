@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Pressable, ImageBackground, Dimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+// import { Ionicons } from '@expo/vector-icons';
 import DraggableResizableTile from './DraggableResizableTile';
 // import * as Linking from 'expo-linking';
 
@@ -98,10 +98,10 @@ export default function DetailsScreen() {
       )} */}
       <View style={styles.moveBtnRow}>
         <TouchableOpacity onPress={() => moveTile(index, index - 1)} disabled={index === 0} style={[styles.moveBtn, index === 0 && styles.moveBtnDisabled]}>
-          <Ionicons name="arrow-up" size={20} color={index === 0 ? '#ccc' : '#b97a56'} />
+          {/* <Ionicons name="arrow-up" size={20} color={index === 0 ? '#ccc' : '#b97a56'} /> */}
         </TouchableOpacity>
         <TouchableOpacity onPress={() => moveTile(index, index + 1)} disabled={index === tiles.length - 1} style={[styles.moveBtn, index === tiles.length - 1 && styles.moveBtnDisabled]}>
-          <Ionicons name="arrow-down" size={20} color={index === tiles.length - 1 ? '#ccc' : '#b97a56'} />
+          {/* <Ionicons name="arrow-down" size={20} color={index === tiles.length - 1 ? '#ccc' : '#b97a56'} /> */}
         </TouchableOpacity>
       </View>
     </View>
@@ -125,7 +125,7 @@ export default function DetailsScreen() {
           />
         ))}
         <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
-          <Ionicons name="add-circle" size={60} color="#fff" />
+          {/* <Ionicons name="add-circle" size={60} color="#fff" /> */}
         </TouchableOpacity>
       </ImageBackground>
       {/* Modal for adding new tile */}

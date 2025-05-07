@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, TextInput, Pressable, Alert, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+// import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../App';
@@ -74,7 +74,7 @@ export default function HomeScreen({ navigation }: Props) {
       activeOpacity={0.85}
     >
       <View style={styles.tileIconWrap}>
-        <Ionicons name={item.icon as any} size={44} color="#2d2d2d" />
+        {/* <Ionicons name={item.icon as any} size={44} color="#2d2d2d" /> */}
       </View>
       <Text style={styles.tileTitle}>{item.title}</Text>
       <Text style={styles.tileSubtitle}>{item.subtitle}</Text>
@@ -82,7 +82,7 @@ export default function HomeScreen({ navigation }: Props) {
         style={styles.deleteBtn}
         onPress={() => handleDeleteTile(item.id)}
       >
-        <Ionicons name="trash-outline" size={22} color="#c00" />
+        {/* <Ionicons name="trash-outline" size={22} color="#c00" /> */}
       </Pressable>
     </TouchableOpacity>
   );
@@ -99,7 +99,7 @@ export default function HomeScreen({ navigation }: Props) {
               onPress={() => setModalVisible(true)}
               activeOpacity={0.85}
             >
-              <Ionicons name="add" size={44} color="#4A90E2" style={{ marginBottom: 8 }} />
+              {/* <Ionicons name="add" size={44} color="#4A90E2" style={{ marginBottom: 8 }} /> */}
               <Text style={styles.addTileText}>Add</Text>
             </TouchableOpacity>
           ) : renderTile({ item })
@@ -137,7 +137,7 @@ export default function HomeScreen({ navigation }: Props) {
                       setIconDropdownOpen(false);
                     }}
                   >
-                    <Ionicons name={iconName as any} size={22} color="#222" style={{ marginRight: 8 }} />
+                    {/* <Ionicons name={iconName as any} size={22} color="#222" style={{ marginRight: 8 }} /> */}
                     <Text>{iconName}</Text>
                   </Pressable>
                 ))}
