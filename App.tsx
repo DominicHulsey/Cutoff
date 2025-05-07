@@ -30,11 +30,6 @@ const linking: LinkingOptions<RootStackParamList> = {
       },
     },
   },
-  async getInitialURL() {
-    // Handles widget deep links or normal links
-    const url = await Promise.resolve(window.location.href);
-    return url;
-  },
 };
 
 export default function App() {
