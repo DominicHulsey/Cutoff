@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Pressable, ImageBackground, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FlatList } from 'react-native';
+import DraggableResizableTile from './DraggableResizableTile';
 // import * as Linking from 'expo-linking';
 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -20,14 +20,17 @@ type CorkTile = {
   id: string;
   type: TileType;
   content: string; // quote text, link URL, or YouTube URL
-  x?: number;
-  y?: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
 };
 
 const initialTiles: CorkTile[] = [
-  { id: '1', type: 'quote', content: 'The best way out is always through. – Robert Frost' },
-  { id: '2', type: 'link', content: 'https://www.wikipedia.org/' },
-  { id: '3', type: 'youtube', content: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+  { id: '1', type: 'quote', content: 'The best way out is always through. – Robert Frost', x: 40, y: 120, width: 180, height: 100, rotation: 0 },
+  { id: '2', type: 'link', content: 'https://www.wikipedia.org/', x: 100, y: 300, width: 180, height: 100, rotation: 0 },
+  { id: '3', type: 'youtube', content: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', x: 220, y: 200, width: 180, height: 100, rotation: 0 },
 ];
 
 export default function DetailsScreen() {
@@ -40,12 +43,18 @@ export default function DetailsScreen() {
     if (!newContent.trim()) return;
     setTiles(prev => [
       ...prev,
-      { id: Date.now().toString(), type: newType, content: newContent.trim() },
+      { id: Date.now().toString(), type: newType, content: newContent.trim(), x: 60, y: 60, width: 180, height: 100, rotation: 0 },
     ]);
     setNewContent('');
     setNewType('quote');
     setModalVisible(false);
   };
+
+  // Handler to update tile position, size, or rotation
+  const updateTile = (id: string, updates: Partial<CorkTile>) => {
+    setTiles(prev => prev.map(tile => tile.id === id ? { ...tile, ...updates } : tile));
+  };
+
 
   const moveTile = (from: number, to: number) => {
     if (to < 0 || to >= tiles.length) return;
@@ -97,47 +106,67 @@ export default function DetailsScreen() {
       </View>
     </View>
   );
-
   return (
-    <ImageBackground source={corkboardBg} style={styles.bg}>
-      <FlatList
-        data={tiles}
-        keyExtractor={item => item.id}
-        renderItem={renderTile}
-        contentContainerStyle={styles.corkContainer}
-      />
-      <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
-        <Ionicons name="add-circle" size={56} color="#f7b267" />
-      </TouchableOpacity>
-      <Modal visible={modalVisible} transparent animationType="fade">
-        <View style={styles.modalBg}>
+    <View style={{ flex: 1 }}>
+      <ImageBackground source={corkboardBg} style={styles.bg}>
+        {/* Render each tile absolutely */}
+        {tiles.map(tile => (
+          <DraggableResizableTile
+            key={tile.id}
+            id={tile.id}
+            x={tile.x || 60}
+            y={tile.y || 60}
+            width={tile.width || 180}
+            height={tile.height || 100}
+            rotation={tile.rotation || 0}
+            type={tile.type}
+            content={tile.content}
+            onUpdate={updates => updateTile(tile.id, updates)}
+          />
+        ))}
+        <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
+          <Ionicons name="add-circle" size={60} color="#fff" />
+        </TouchableOpacity>
+      </ImageBackground>
+      {/* Modal for adding new tile */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Tile</Text>
-            <View style={styles.typeRow}>
-              <Pressable onPress={() => setNewType('quote')} style={[styles.typeBtn, newType==='quote' && styles.typeBtnActive]}><Text>Quote</Text></Pressable>
-              <Pressable onPress={() => setNewType('link')} style={[styles.typeBtn, newType==='link' && styles.typeBtnActive]}><Text>Link</Text></Pressable>
-              <Pressable onPress={() => setNewType('youtube')} style={[styles.typeBtn, newType==='youtube' && styles.typeBtnActive]}><Text>YouTube</Text></Pressable>
+            <Text style={styles.modalTitle}>Add New Tile</Text>
+            <View style={styles.typeSelector}>
+              <Pressable onPress={() => setNewType('quote')} style={[styles.typeButton, newType === 'quote' && styles.typeButtonSelected]}>
+                <Text>Quote</Text>
+              </Pressable>
+              <Pressable onPress={() => setNewType('link')} style={[styles.typeButton, newType === 'link' && styles.typeButtonSelected]}>
+                <Text>Link</Text>
+              </Pressable>
+              <Pressable onPress={() => setNewType('youtube')} style={[styles.typeButton, newType === 'youtube' && styles.typeButtonSelected]}>
+                <Text>YouTube</Text>
+              </Pressable>
             </View>
             <TextInput
-              placeholder={newType==='quote' ? 'Enter quote' : newType==='link' ? 'Enter URL' : 'Enter YouTube URL'}
+              style={styles.input}
+              placeholder={`Enter ${newType === 'quote' ? 'quote' : newType === 'link' ? 'link URL' : 'YouTube URL'}`}
               value={newContent}
               onChangeText={setNewContent}
-              style={styles.input}
-              autoCapitalize="none"
-              autoCorrect={false}
             />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 }}>
-              <Pressable style={styles.modalBtn} onPress={handleAddTile}>
-                <Text style={{ color: '#fff' }}>Add</Text>
-              </Pressable>
-              <Pressable style={[styles.modalBtn, { backgroundColor: '#ccc' }]} onPress={() => setModalVisible(false)}>
-                <Text style={{ color: '#333' }}>Cancel</Text>
-              </Pressable>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCancel}>
+                <Text>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleAddTile} style={styles.modalAdd}>
+                <Text>Add</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </ImageBackground>
+    </View>
   );
 }
 
@@ -271,5 +300,37 @@ const styles = StyleSheet.create({
   },
   moveBtnDisabled: {
     backgroundColor: '#f0ede5',
+  },
+    modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    marginVertical: 8,
+    justifyContent: 'space-between',
+  },
+  typeButton: {
+    backgroundColor: '#eee',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginHorizontal: 4,
+  },
+  typeButtonSelected: {
+    backgroundColor: '#f7b267',
+  },
+  modalCancel: {
+    backgroundColor: '#eee',
+    padding: 10,
+    borderRadius: 6,
+    marginRight: 10,
+  },
+  modalAdd: {
+    backgroundColor: '#f7b267',
+    padding: 10,
+    borderRadius: 6,
   },
 });
