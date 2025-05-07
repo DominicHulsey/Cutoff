@@ -1,13 +1,8 @@
 {
   "expo": {
-    "name": "CutoffRNApp",
-    "slug": "cutoff-rn-app",
+    "name": "Rewire",
+    "slug": "rewire",
     "version": "1.0.0",
-    "sdkVersion": "50.0.0",
-    "platforms": [
-      "ios",
-      "android"
-    ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
@@ -22,34 +17,16 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.cutoff.app",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
-      },
-      "package": "com.cutoff.app"
+      }
     },
-    "scheme": "cutoff",
-    "widgets": [
-      {
-        "name": "CutoffWidget",
-        "filename": "./CutoffWidget.tsx",
-        "widgetFamily": [
-          "systemSmall",
-          "systemMedium"
-        ]
-      }
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "08fe3475-ba4f-43c8-a11a-ce7f710b7dc6"
-      }
+    "web": {
+      "favicon": "./assets/favicon.png"
     }
   }
 }

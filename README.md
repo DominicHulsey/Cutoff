@@ -1,37 +1,18 @@
-# Cutoff React Native App
+# Rewire Expo App
 
-This is a basic React Native application with:
-- A homepage (`HomeScreen`) displaying a welcome message and a button.
-- A details page (`DetailsScreen`) navigated to by the button.
+This is a basic React Native app scaffolded with Expo.
 
 ## Getting Started
 
-### 1. Install dependencies
-```
-npm install
-```
+1. Install dependencies:
+   ```sh
+   npm install
+   ```
+2. Start the development server:
+   ```sh
+   npm start
+   ```
+3. Open in Expo Go (mobile) or a simulator.
 
-### 2. Run the app
-- For iOS:
-  ```
-  npm run ios
-  ```
-- For Android:
-  ```
-  npm run android
-  ```
-
-## Project Structure
-- `App.js`: Entry point, sets up navigation.
-- `screens/HomeScreen.js`: Homepage with navigation button.
-- `screens/DetailsScreen.js`: Simple details page.
-
-## Dependencies
-- `react-native`
-- `react`
-- `@react-navigation/native`
-- `@react-navigation/native-stack`
-
----
-
-Feel free to expand this template for your needs!
+## Features
+- Basic homepage with welcome message
