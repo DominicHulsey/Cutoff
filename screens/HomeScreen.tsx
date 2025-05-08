@@ -1,9 +1,17 @@
 import React from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, TextInput, Pressable, Alert, ScrollView } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, TextInput, Pressable, Alert, ScrollView, StatusBar, SafeAreaView, Image } from 'react-native';
 // import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../App';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
+
+// Haptic feedback options
+const hapticOptions = {
+  enableVibrateFallback: true,
+  ignoreAndroidSystemSettings: false,
+};
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -13,6 +21,7 @@ type Tile = {
   title: string;
   subtitle: string;
   color: string;
+  imageUrl?: string;
 };
 
 const defaultTiles: Tile[] = [
@@ -33,10 +42,18 @@ const IONICON_OPTIONS = [
 ];
 
 export default function HomeScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [tiles, setTiles] = React.useState<Tile[]>([]);
   const [modalVisible, setModalVisible] = React.useState(false);
   const [newTile, setNewTile] = React.useState<Partial<Tile>>({});
   const [iconDropdownOpen, setIconDropdownOpen] = React.useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = React.useState(false);
+  const [tileToDelete, setTileToDelete] = React.useState<string | null>(null);
+  const [isLongPressing, setIsLongPressing] = React.useState<string | null>(null);
+  const [isGeneratingImage, setIsGeneratingImage] = React.useState(false);
+  const [imagePrompt, setImagePrompt] = React.useState('');
+  const [imageModalVisible, setImageModalVisible] = React.useState(false);
+  const [tileForImage, setTileForImage] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     (async () => {
@@ -63,33 +80,126 @@ export default function HomeScreen({ navigation }: Props) {
     setModalVisible(false);
   };
 
-  const handleDeleteTile = (id: string) => {
-    setTiles(prev => prev.filter(t => t.id !== id));
+  const confirmDeleteTile = (id: string) => {
+    ReactNativeHapticFeedback.trigger('impactMedium', hapticOptions);
+    setTileToDelete(id);
+    setDeleteConfirmVisible(true);
+  };
+  
+  const handleDeleteTile = () => {
+    if (tileToDelete) {
+      setTiles(prev => prev.filter(t => t.id !== tileToDelete));
+      setTileToDelete(null);
+      setDeleteConfirmVisible(false);
+    }
+  };
+  
+  const cancelDelete = () => {
+    setTileToDelete(null);
+    setDeleteConfirmVisible(false);
+  };
+  
+  const handleLongPress = (id: string) => {
+    ReactNativeHapticFeedback.trigger('impactMedium', hapticOptions);
+    setIsLongPressing(id);
+    setTimeout(() => setIsLongPressing(null), 500);
+  };
+  
+  // Generate AI image for a tile
+  const openImagePromptModal = (id: string) => {
+    setTileForImage(id);
+    setImagePrompt('');
+    setImageModalVisible(true);
+  };
+  
+  // Generate image using pollinations.ai
+  const generateImage = async () => {
+    if (!imagePrompt.trim() || !tileForImage) return;
+    
+    try {
+      setIsGeneratingImage(true);
+      
+      // Encode the prompt for URL
+      const encodedPrompt = encodeURIComponent(imagePrompt.trim());
+      
+      // Create the image URL from pollinations.ai
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}`;
+      
+      // Update the tile with the image URL
+      setTiles(prev => prev.map(tile => {
+        if (tile.id === tileForImage) {
+          return { ...tile, imageUrl };
+        }
+        return tile;
+      }));
+      
+      // Close modal and reset state
+      setImageModalVisible(false);
+      setTileForImage(null);
+      setImagePrompt('');
+      
+      // Save the updated tiles to AsyncStorage
+      AsyncStorage.setItem('tiles', JSON.stringify(
+        tiles.map(t => t.id === tileForImage ? { ...t, imageUrl } : t)
+      ));
+      
+    } catch (error) {
+      console.error('Error generating image:', error);
+      Alert.alert('Error', 'Failed to generate image. Please try again.');
+    } finally {
+      setIsGeneratingImage(false);
+    }
   };
 
   const renderTile = ({ item }: { item: Tile }) => (
     <TouchableOpacity
-      style={[styles.tile, { backgroundColor: item.color }]}
+      style={[
+        styles.tile, 
+        { backgroundColor: item.color },
+        isLongPressing === item.id && styles.tileLongPress
+      ]}
       onPress={() => navigation.navigate('Details', { tile: item })}
+      onLongPress={() => handleLongPress(item.id)}
+      delayLongPress={500}
       activeOpacity={0.85}
     >
-      <View style={styles.tileIconWrap}>
-        {/* <Ionicons name={item.icon as any} size={44} color="#2d2d2d" /> */}
+      {/* Pushpin at the top */}
+      <View style={styles.pushpinContainer}>
+        <View style={[styles.pushpin, { backgroundColor: getPushpinColor(item.id) }]} />
       </View>
+      
+      {item.imageUrl ? (
+        <View style={styles.tileImageContainer}>
+          <Image source={{ uri: item.imageUrl }} style={styles.tileImage} />
+        </View>
+      ) : (
+        <View style={styles.tileIconWrap}>
+          {/* <Ionicons name={item.icon as any} size={44} color="#2d2d2d" /> */}
+        </View>
+      )}
       <Text style={styles.tileTitle}>{item.title}</Text>
       <Text style={styles.tileSubtitle}>{item.subtitle}</Text>
+      
+      {/* Image generation button */}
+      <Pressable
+        style={styles.imageGenBtn}
+        onPress={() => openImagePromptModal(item.id)}
+      >
+        <Text style={styles.imageGenBtnText}>🖼️</Text>
+      </Pressable>
       <Pressable
         style={styles.deleteBtn}
-        onPress={() => handleDeleteTile(item.id)}
+        onPress={() => confirmDeleteTile(item.id)}
       >
-        {/* <Ionicons name="trash-outline" size={22} color="#c00" /> */}
+        <Text style={styles.deleteBtnText}>×</Text>
       </Pressable>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.greeting}>Good Afternoon 🌞</Text>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <Text style={[styles.greeting, { marginTop: insets.top }]}>Good Afternoon 🌞</Text>
       <FlatList
         data={[...tiles, { id: 'add', icon: '', title: '', subtitle: '', color: '' } as Tile]}
         renderItem={({ item }) =>
@@ -172,15 +282,89 @@ export default function HomeScreen({ navigation }: Props) {
           </View>
         </View>
       </Modal>
-    </View>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={deleteConfirmVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={cancelDelete}
+      >
+        <View style={styles.modalBg}>
+          <View style={styles.confirmModalContent}>
+            <Text style={styles.confirmTitle}>Delete Tile?</Text>
+            <Text style={styles.confirmText}>This action cannot be undone.</Text>
+            <View style={{ flexDirection: 'row', marginTop: 20 }}>
+              <TouchableOpacity 
+                style={[styles.confirmBtn, styles.cancelBtn]} 
+                onPress={cancelDelete}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.confirmBtn, styles.deleteConfirmBtn]} 
+                onPress={handleDeleteTile}
+              >
+                <Text style={styles.deleteConfirmText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Image Generation Modal */}
+      <Modal
+        visible={imageModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setImageModalVisible(false)}
+      >
+        <View style={styles.modalBg}>
+          <View style={styles.modalContent}>
+            <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 10 }}>Generate AI Image</Text>
+            <TextInput
+              placeholder="Describe the image you want"
+              value={imagePrompt}
+              onChangeText={setImagePrompt}
+              style={styles.input}
+              multiline
+              numberOfLines={3}
+            />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 }}>
+              <Pressable 
+                style={[styles.modalBtn, { backgroundColor: '#ccc' }]} 
+                onPress={() => setImageModalVisible(false)}
+              >
+                <Text style={{ color: '#333' }}>Cancel</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.modalBtn, isGeneratingImage && { opacity: 0.7 }]} 
+                onPress={generateImage}
+                disabled={isGeneratingImage || !imagePrompt.trim()}
+              >
+                <Text style={{ color: '#fff' }}>
+                  {isGeneratingImage ? 'Generating...' : 'Generate'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 }
+
+// Function to get a color for the pushpin based on tile ID
+const getPushpinColor = (id: string) => {
+  const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
+  const numericId = parseInt(id, 10) || 0;
+  return colors[numericId % colors.length];
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFDF8',
-    paddingTop: 60,
     paddingHorizontal: 20,
   },
   greeting: {
@@ -199,17 +383,23 @@ const styles = StyleSheet.create({
   tile: {
     width: '48%',
     aspectRatio: 1,
-    borderRadius: 28,
+    borderRadius: 4,
     padding: 18,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
     marginBottom: 18,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    // Sticky note appearance
+    backgroundColor: '#fff9c4',
+    borderBottomWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+    paddingTop: 24, // Space for pushpin
   },
   tileIconWrap: {
     marginBottom: 12,
@@ -257,8 +447,111 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    padding: 4,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,0,0,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
     zIndex: 2,
+  },
+  deleteBtnText: {
+    fontSize: 20,
+    color: '#FF3B30',
+    fontWeight: 'bold',
+  },
+  tileLongPress: {
+    transform: [{ scale: 1.05 }],
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  pushpinContainer: {
+    position: 'absolute',
+    top: 5,
+    alignSelf: 'center',
+    zIndex: 10,
+  },
+  pushpin: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#e74c3c',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 1, height: 1 },
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  confirmModalContent: {
+    width: 280,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
+  },
+  confirmText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  confirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginHorizontal: 5,
+    alignItems: 'center',
+  },
+  cancelBtn: {
+    backgroundColor: '#f0f0f0',
+  },
+  cancelBtnText: {
+    color: '#333',
+    fontWeight: '500',
+  },
+  deleteConfirmBtn: {
+    backgroundColor: '#FF3B30',
+  },
+  deleteConfirmText: {
+    color: '#fff',
+    fontWeight: '500',
+  },
+  tileImageContainer: {
+    width: '100%',
+    height: 100,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginVertical: 8,
+  },
+  tileImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  imageGenBtn: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  imageGenBtnText: {
+    fontSize: 16,
   },
   addBtn: {
     position: 'absolute',

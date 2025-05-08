@@ -35,7 +35,14 @@ const linking: LinkingOptions<RootStackParamList> = {
 export default function App() {
   return (
     <NavigationContainer linking={linking} theme={DefaultTheme}>
-      <Stack.Navigator initialRouteName="Home">
+      <Stack.Navigator 
+        initialRouteName="Home"
+        screenOptions={{
+          headerShown: false, // Remove the header completely
+          contentStyle: { backgroundColor: '#FFFDF8' },
+          animation: 'slide_from_right',
+        }}
+      >
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Details" component={DetailsScreen} />
       </Stack.Navigator>
