@@ -62,25 +62,15 @@ export default function HomeScreen({ navigation }: Props) {
   const animatedFormOpacity = useRef(new Animated.Value(0)).current;
   const animatedFormScale = useRef(new Animated.Value(0.8)).current;
   const animatedBackdropOpacity = useRef(new Animated.Value(0)).current;
+  const animatedFormTranslateY = useRef(new Animated.Value(60)).current; // Start 60px below center
   const { width, height } = Dimensions.get('window');
 
-  // Load tiles from storage on component mount
-  useEffect(() => {
-    const loadTiles = async () => {
-      try {
-        const stored = await AsyncStorage.getItem('tiles');
-        if (stored) {
-          setTiles(JSON.parse(stored));
-        } else {
-          setTiles(defaultTiles);
-        }
-      } catch (error) {
-        console.error('Error loading tiles:', error);
-        setTiles(defaultTiles);
-      }
-    };
-    
-    loadTiles();
+  React.useEffect(() => {
+    (async () => {
+      const stored = await AsyncStorage.getItem('tiles');
+      if (stored) setTiles(JSON.parse(stored));
+      else setTiles(defaultTiles);
+    })();
   }, []);
 
   // Save tiles to storage whenever they change
@@ -136,6 +126,28 @@ export default function HomeScreen({ navigation }: Props) {
     ]).start(() => {
       setFormVisible(false);
     });
+  };
+
+  // Animation functions
+  const showForm = () => {
+    setNewTile({ title: '', subtitle: '' });
+    setFormVisible(true);
+    animatedFormTranslateY.setValue(60); // Reset
+    Animated.parallel([
+      Animated.timing(animatedBackdropOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.timing(animatedFormOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.spring(animatedFormScale, { toValue: 1, friction: 8, tension: 40, useNativeDriver: true }),
+      Animated.spring(animatedFormTranslateY, { toValue: 0, friction: 8, tension: 40, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const hideForm = () => {
+    Animated.parallel([
+      Animated.timing(animatedBackdropOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(animatedFormOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(animatedFormScale, { toValue: 0.8, duration: 200, useNativeDriver: true }),
+      Animated.timing(animatedFormTranslateY, { toValue: 60, duration: 200, useNativeDriver: true }),
+    ]).start(() => setFormVisible(false));
   };
 
   const handleAddTile = () => {
@@ -215,6 +227,59 @@ export default function HomeScreen({ navigation }: Props) {
       
       <FlatList
         data={[...tiles, { id: 'add', icon: '', title: '', subtitle: '', color: '' } as Tile]}
+        renderItem={renderTile}
+        keyExtractor={item => item.id}
+        contentContainerStyle={styles.tileGrid}
+        showsVerticalScrollIndicator={false}
+      />
+      
+      {formVisible && (
+        <Animated.View 
+          style={[styles.formOverlay, { opacity: animatedBackdropOpacity }]}
+        >
+          <Pressable style={styles.backdropPress} onPress={hideForm} />
+          
+          <Animated.View
+            style={[
+              styles.formContainer,
+              {
+                opacity: animatedFormOpacity,
+                transform: [
+                  { scale: animatedFormScale },
+                  { translateY: animatedFormTranslateY }
+                ],
+              },
+            ]}
+          >
+            <Text style={styles.formTitle}>Create a New Tile</Text>
+            
+            <TextInput
+              style={styles.input}
+              placeholder="Title"
+              value={newTile.title}
+              onChangeText={text => setNewTile(prev => ({ ...prev, title: text }))}
+              placeholderTextColor="#999"
+            />
+            
+            <TextInput
+              style={styles.input}
+              placeholder="Subtitle"
+              value={newTile.subtitle}
+              onChangeText={text => setNewTile(prev => ({ ...prev, subtitle: text }))}
+              placeholderTextColor="#999"
+            />
+            
+            <TouchableOpacity 
+              style={styles.rewireButton} 
+              onPress={handleAddTile}
+            >
+              <View style={styles.addButtonCircle}>
+                <Text style={styles.addButtonText}>+</Text>
+              </View>
+              <Text style={styles.addTileText}>Add New</Text>
+            </TouchableOpacity>
+          ) : renderTile({ item })
+        }
         renderItem={renderTile}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.tileGrid}
