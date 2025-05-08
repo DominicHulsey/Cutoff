@@ -1,23 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
   FlatList, 
   TouchableOpacity, 
   StyleSheet, 
-  Modal, 
   TextInput, 
   Pressable, 
   Alert, 
   StatusBar, 
-  SafeAreaView 
+  SafeAreaView,
+  Animated,
+  Easing,
+  Dimensions,
+  Modal
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { FONTS } from '../src/constants/fonts';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../App';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -50,10 +53,16 @@ const defaultTiles: Tile[] = [
 export default function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const [tiles, setTiles] = useState<Tile[]>([]);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [formVisible, setFormVisible] = useState(false);
   const [newTile, setNewTile] = useState<Partial<Tile>>({});
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [tileToDelete, setTileToDelete] = useState<string | null>(null);
+  
+  // Animation values
+  const animatedFormOpacity = useRef(new Animated.Value(0)).current;
+  const animatedFormScale = useRef(new Animated.Value(0.8)).current;
+  const animatedBackdropOpacity = useRef(new Animated.Value(0)).current;
+  const { width, height } = Dimensions.get('window');
 
   // Load tiles from storage on component mount
   useEffect(() => {
@@ -79,7 +88,56 @@ export default function HomeScreen({ navigation }: Props) {
     AsyncStorage.setItem('tiles', JSON.stringify(tiles));
   }, [tiles]);
 
-  // Handle adding a new tile
+  // Animation functions
+  const showForm = () => {
+    // Reset the new tile data
+    setNewTile({});
+    // Show the form
+    setFormVisible(true);
+    
+    // Start animations
+    Animated.parallel([
+      Animated.timing(animatedBackdropOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(animatedFormOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.spring(animatedFormScale, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const hideForm = () => {
+    Animated.parallel([
+      Animated.timing(animatedBackdropOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(animatedFormOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(animatedFormScale, {
+        toValue: 0.8,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setFormVisible(false);
+    });
+  };
+
   const handleAddTile = () => {
     if (!newTile.title || !newTile.subtitle) {
       Alert.alert('Missing Information', 'Please provide both a title and subtitle.');
@@ -95,17 +153,18 @@ export default function HomeScreen({ navigation }: Props) {
     };
 
     setTiles(prev => [...prev, newTileComplete]);
-    setNewTile({});
-    setModalVisible(false);
+    hideForm();
+    
+    setTimeout(() => {
+      navigation.navigate('Details', { tile: newTileComplete });
+    }, 300); 
   };
 
-  // Handle confirming tile deletion
   const confirmDeleteTile = (id: string) => {
     setTileToDelete(id);
     setDeleteConfirmVisible(true);
   };
 
-  // Handle actual tile deletion
   const handleDeleteTile = () => {
     if (tileToDelete) {
       setTiles(prev => prev.filter(tile => tile.id !== tileToDelete));
@@ -114,17 +173,15 @@ export default function HomeScreen({ navigation }: Props) {
     setDeleteConfirmVisible(false);
   };
 
-  // Cancel delete operation
   const cancelDelete = () => {
     setTileToDelete(null);
     setDeleteConfirmVisible(false);
   };
 
-  // Render individual tile
   const renderTile = ({ item }: { item: Tile }) => (
     <TouchableOpacity
       style={styles.tile}
-      onPress={() => navigation.navigate('Details', { tile: item })}
+      onPress={() => item.id === 'add' ? showForm() : navigation.navigate('Details', { tile: item })}
       activeOpacity={0.7}
     >
       {item.id === 'add' ? (
@@ -153,7 +210,7 @@ export default function HomeScreen({ navigation }: Props) {
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       
       <View style={[styles.header, { marginTop: insets.top / 2 }]}>
-        <Text style={[styles.greeting, { textAlign: 'center' }]}>{"What's on your mind?"}</Text>
+        <Text style={[styles.greeting, { textAlign: 'center' }]}>What's on your mind?</Text>
       </View>
       
       <FlatList
@@ -164,22 +221,29 @@ export default function HomeScreen({ navigation }: Props) {
         showsVerticalScrollIndicator={false}
       />
       
-      {/* Add Tile Modal */}
-      <Modal
-        visible={modalVisible}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add New Tile</Text>
+      {formVisible && (
+        <Animated.View 
+          style={[styles.formOverlay, { opacity: animatedBackdropOpacity }]}
+        >
+          <Pressable style={styles.backdropPress} onPress={hideForm} />
+          
+          <Animated.View 
+            style={[
+              styles.formContainer,
+              {
+                opacity: animatedFormOpacity,
+                transform: [{ scale: animatedFormScale }]
+              }
+            ]}
+          >
+            <Text style={styles.formTitle}>Create a New Tile</Text>
             
             <TextInput
               style={styles.input}
               placeholder="Title"
               value={newTile.title}
               onChangeText={text => setNewTile(prev => ({ ...prev, title: text }))}
+              placeholderTextColor="#999"
             />
             
             <TextInput
@@ -187,28 +251,19 @@ export default function HomeScreen({ navigation }: Props) {
               placeholder="Subtitle"
               value={newTile.subtitle}
               onChangeText={text => setNewTile(prev => ({ ...prev, subtitle: text }))}
+              placeholderTextColor="#999"
             />
             
-            <View style={styles.btnRow}>
-              <TouchableOpacity 
-                style={[styles.modalBtn, styles.cancelModalBtn]} 
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={styles.cancelModalBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.modalBtn} 
-                onPress={handleAddTile}
-              >
-                <Text style={styles.modalBtnText}>Add</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+            <TouchableOpacity 
+              style={styles.rewireButton} 
+              onPress={handleAddTile}
+            >
+              <Text style={styles.rewireButtonText}>Rewire</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
+      )}
       
-      {/* Delete Confirmation Modal */}
       <Modal
         visible={deleteConfirmVisible}
         transparent
@@ -245,183 +300,168 @@ export default function HomeScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: '#FFFFFF',
   },
   header: {
-    paddingTop: 10,
-    marginBottom: 24,
     paddingHorizontal: 24,
+    paddingVertical: 16,
   },
   greeting: {
-    fontSize: 28,
-    fontFamily: FONTS.light,
-    color: COLORS.text,
-    marginBottom: 20,
+    fontSize: 24,
+    fontFamily: 'Lato-Bold',
+    color: '#333333',
   },
   tileGrid: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+    padding: 24,
   },
   tile: {
-    width: '100%',
-    height: 120,
-    borderRadius: 16,
     marginBottom: 16,
+    borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  tileContent: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   addTileContent: {
-    flex: 1,
+    padding: 24,
+    backgroundColor: '#F4F4F2',
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(42, 125, 79, 0.1)',
-    borderStyle: 'dashed',
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderRadius: 16,
-  },
-  tileTitle: {
-    fontSize: 20,
-    fontFamily: FONTS.semiBold,
-    color: '#fff',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  tileSubtitle: {
-    fontSize: 16,
-    fontFamily: FONTS.regular,
-    color: '#fff',
-    textAlign: 'center',
-    opacity: 0.9,
   },
   addButtonCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#2A7D4F',
     justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 8,
   },
   addButtonText: {
-    color: 'white',
-    fontSize: 28,
-    fontFamily: FONTS.bold,
+    fontSize: 24,
+    fontFamily: 'Lato-Bold',
+    color: '#FFFFFF',
   },
   addTileText: {
-    color: COLORS.primary,
-    fontFamily: FONTS.semiBold,
     fontSize: 16,
+    fontFamily: 'Lato-Regular',
+    color: '#666666',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalBg: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: 320,
-    backgroundColor: 'white',
-    borderRadius: 20,
+  tileContent: {
     padding: 24,
-    elevation: 10,
+    borderRadius: 16,
+  },
+  tileTitle: {
+    fontSize: 18,
+    fontFamily: 'Lato-Bold',
+    color: '#333333',
+    marginBottom: 4,
+  },
+  tileSubtitle: {
+    fontSize: 16,
+    fontFamily: 'Lato-Regular',
+    color: '#666666',
+  },
+  formOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  backdropPress: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  formContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontFamily: FONTS.bold,
-    color: COLORS.text,
+  formTitle: {
+    fontSize: 22,
+    fontFamily: 'Lato-Bold',
+    color: '#2A7D4F',
     marginBottom: 20,
+    textAlign: 'center',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 12,
-    padding: 12,
+    borderColor: '#DDDDDD',
+    borderRadius: 8,
+    padding: 14,
     marginBottom: 16,
-    backgroundColor: '#FAFAFA',
     fontSize: 16,
-    fontFamily: FONTS.regular,
+    fontFamily: 'Lato-Regular',
     width: '100%',
+  },
+  rewireButton: {
+    backgroundColor: '#2A7D4F',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 30,
+    marginTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  rewireButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontFamily: 'Lato-Bold',
+    textAlign: 'center',
+  },
+  modalBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  confirmModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  confirmTitle: {
+    fontSize: 22,
+    fontFamily: 'Lato-Bold',
+    color: '#333333',
+    marginBottom: 8,
+  },
+  confirmText: {
+    fontSize: 16,
+    fontFamily: 'Lato-Regular',
+    color: '#666666',
+    marginBottom: 16,
   },
   btnRow: {
     flexDirection: 'row',
-    marginTop: 20,
+    justifyContent: 'space-between',
     width: '100%',
   },
-  modalBtn: {
-    flex: 1,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginHorizontal: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: FONTS.medium,
-  },
-  cancelModalBtn: {
-    backgroundColor: '#f0f0f0',
-  },
-  cancelModalBtnText: {
-    color: '#333',
-    fontSize: 16,
-    fontFamily: FONTS.medium,
-  },
-  confirmModalContent: {
-    width: 280,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  confirmTitle: {
-    fontSize: 18,
-    fontFamily: FONTS.semiBold,
-    marginBottom: 10,
-    color: '#333',
-  },
-  confirmText: {
-    fontSize: 14,
-    fontFamily: FONTS.regular,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 15,
-  },
   confirmBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginHorizontal: 5,
-    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 30,
+    width: '45%',
   },
   cancelBtn: {
     backgroundColor: '#f0f0f0',
