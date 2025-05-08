@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Text, StyleSheet, View, Image, Modal, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
+import { FONTS } from '../src/constants/fonts';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -37,8 +38,21 @@ type Props = {
   onEdit?: (id: string, type: string, content: string) => void;
 };
 
-// Pushpin image (you can replace this with an actual image asset)
-const PUSHPIN_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
+// Modern color palette based on the screenshots
+const COLORS = {
+  primary: '#2A7D4F',       // Main green color
+  secondary: '#F4F4F2',     // Light background
+  accent: '#FFD84D',        // Yellow accent
+  text: '#333333',          // Dark text
+  lightText: '#666666',     // Secondary text
+  cardBg1: '#E8F5E9',       // Light green card
+  cardBg2: '#FFF8E1',       // Light yellow card
+  cardBg3: '#E3F2FD',       // Light blue card
+  cardBg4: '#F3E5F5',       // Light purple card
+};
+
+// Accent colors for tile elements
+const ACCENT_COLORS = ['#2A7D4F', '#FF9800', '#5E35B1', '#1E88E5', '#43A047'];
 
 const DraggableResizableTile: React.FC<Props> = ({
   id, x, y, width, height, rotation, type, content, onUpdate, onDuplicate, onDelete, onEdit,
@@ -54,7 +68,7 @@ const DraggableResizableTile: React.FC<Props> = ({
   const isActive = useSharedValue(false);
   const finalWidth = useSharedValue(width);
   const finalHeight = useSharedValue(height);
-  const pinColor = PUSHPIN_COLORS[parseInt(id, 10) % PUSHPIN_COLORS.length];
+  const accentColor = ACCENT_COLORS[parseInt(id, 10) % ACCENT_COLORS.length];
   
   // Update shared values when props change (for persistence when navigating back)
   useEffect(() => {
@@ -202,13 +216,16 @@ const DraggableResizableTile: React.FC<Props> = ({
     <GestureHandlerRootView style={{ flex: 1 }}>
       <GestureDetector gesture={combinedGestures}>
         <Animated.View style={[styles.tile, animatedStyle]}>
-          {/* Pushpin at the top */}
-          <View style={styles.pushpinContainer}>
-            <View style={[styles.pushpin, { backgroundColor: pinColor }]} />
-          </View>
-          
           <Animated.View style={styles.contentContainer}>
-            <Text style={styles.contentText}>{content}</Text>
+            {/* Header with accent color */}
+            <View style={[styles.tileHeader, { backgroundColor: accentColor }]}>
+              <View style={styles.headerDot} />
+            </View>
+            
+            {/* Content area */}
+            <View style={styles.textContainer}>
+              <Text style={styles.contentText}>{content}</Text>
+            </View>
           </Animated.View>
         </Animated.View>
       </GestureDetector>
@@ -252,49 +269,45 @@ const DraggableResizableTile: React.FC<Props> = ({
 
 const styles = StyleSheet.create({
   tile: {
-    backgroundColor: '#fff9c4', // Light yellow sticky note color
-    borderRadius: 2,
-    padding: 16,
-    paddingTop: 24, // Extra padding at top for pushpin
+    backgroundColor: COLORS.secondary,
+    borderRadius: 16,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
-    elevation: 5,
-    // Subtle gradient effect via border
-    borderBottomWidth: 1,
-    borderRightWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
+    elevation: 3,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   actionModal: {
     position: 'absolute',
-    width: 150,
+    width: 160,
     backgroundColor: 'white',
-    borderRadius: 8,
+    borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
     overflow: 'hidden',
   },
   actionButton: {
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     alignItems: 'center',
   },
   actionButtonText: {
     fontSize: 16,
-    color: '#4A90E2',
+    fontFamily: FONTS.medium,
+    color: COLORS.primary,
   },
   deleteButton: {
-    backgroundColor: 'rgba(255,0,0,0.05)',
+    backgroundColor: 'rgba(255,59,48,0.05)',
   },
   deleteButtonText: {
     color: '#FF3B30',
@@ -303,34 +316,37 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#EEEEEE',
   },
-  pushpinContainer: {
-    position: 'absolute',
-    top: 5,
-    alignSelf: 'center',
-    zIndex: 10,
+  tileHeader: {
+    height: 12,
+    width: '100%',
+    backgroundColor: COLORS.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
   },
-  pushpin: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#e74c3c', // Default red pushpin
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 1, height: 1 },
-    shadowRadius: 1,
-    elevation: 2,
+  headerDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    marginRight: 4,
   },
   contentContainer: {
     flex: 1,
+    overflow: 'hidden',
+  },
+  textContainer: {
+    flex: 1,
+    padding: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 5,
   },
   contentText: {
-    fontFamily: 'System',
+    fontFamily: FONTS.regular,
     fontSize: 16,
-    color: '#333',
+    color: COLORS.text,
     textAlign: 'center',
+    lineHeight: 22,
   },
 });
 

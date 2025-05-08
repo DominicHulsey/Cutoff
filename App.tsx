@@ -1,6 +1,8 @@
 import * as React from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { NavigationContainer, DefaultTheme, LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Text, View, ActivityIndicator, StyleSheet } from 'react-native';
 import HomeScreen from './screens/HomeScreen';
 import DetailsScreen from './screens/DetailsScreen';
 
@@ -32,14 +34,26 @@ const linking: LinkingOptions<RootStackParamList> = {
   },
 };
 
+// Create a custom theme with Montserrat font
+const customTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: '#F4F4F2',
+    primary: '#2A7D4F',
+    text: '#333333',
+  },
+};
+
 export default function App() {
+
   return (
-    <NavigationContainer linking={linking} theme={DefaultTheme}>
+    <NavigationContainer linking={linking} theme={customTheme}>
       <Stack.Navigator 
         initialRouteName="Home"
         screenOptions={{
           headerShown: false, // Remove the header completely
-          contentStyle: { backgroundColor: '#FFFDF8' },
+          contentStyle: { backgroundColor: '#F4F4F2' },
           animation: 'slide_from_right',
         }}
       >

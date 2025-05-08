@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Pressable, ImageBackground, Dimensions, StatusBar, SafeAreaView, Linking } from 'react-native';
+import { FONTS } from '../src/constants/fonts';
 // import { Ionicons } from '@expo/vector-icons';
 import DraggableResizableTile from './DraggableResizableTile';
 // import * as Linking from 'expo-linking';
@@ -10,7 +11,21 @@ import { RootStackParamList } from '../App';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 
-const corkboardBg = require('../assets/corkboard.png'); // Place a corkboard.jpg in your assets folder
+// Modern color palette based on the screenshots
+const COLORS = {
+  primary: '#2A7D4F',       // Main green color
+  secondary: '#F4F4F2',     // Light background
+  accent: '#FFD84D',        // Yellow accent
+  text: '#333333',          // Dark text
+  lightText: '#666666',     // Secondary text
+  cardBg1: '#E8F5E9',       // Light green card
+  cardBg2: '#FFF8E1',       // Light yellow card
+  cardBg3: '#E3F2FD',       // Light blue card
+  cardBg4: '#F3E5F5',       // Light purple card
+};
+
+// Background image (optional)
+const corkboardBg = require('../assets/corkboard.png');
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
@@ -219,71 +234,82 @@ export default function DetailsScreen({ navigation, route }: Props) {
     </View>
   );
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-      <ImageBackground source={corkboardBg} style={styles.bg} resizeMode="cover">
-        <TouchableOpacity 
-          style={[styles.backButton, { top: insets.top + 10 }]} 
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
+      <SafeAreaView style={{ flex: 1 }}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.screenTitle}>{tile.title}</Text>
+        </View>
         
         {/* Render each tile absolutely */}
-        {!isLoading && tiles.map(detailTile => (
-          <DraggableResizableTile
-            key={detailTile.id}
-            id={detailTile.id}
-            x={detailTile.x || 60}
-            y={detailTile.y || 60}
-            width={detailTile.width || 180}
-            height={detailTile.height || 100}
-            rotation={detailTile.rotation || 0}
-            type={detailTile.type}
-            content={detailTile.content}
-            onUpdate={updates => updateTile(detailTile.id, updates)}
-            onDuplicate={duplicateTile}
-            onDelete={deleteTile}
-            onEdit={editTile}
-          />
-        ))}
-        <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
-          {/* <Ionicons name="add-circle" size={60} color="#fff" /> */}
+        {!isLoading && (
+          <View style={styles.tilesContainer}>
+            {tiles.map((item, index) => renderTile({ item, index }))}
+          </View>
+        )}
+        
+        <TouchableOpacity 
+          style={styles.addBtn}
+          onPress={() => setModalVisible(true)}
+        >
+          <View style={styles.addBtnInner}>
+            <Text style={styles.addBtnText}>+</Text>
+          </View>
         </TouchableOpacity>
-      </ImageBackground>
+      </SafeAreaView>
+      
       {/* Modal for adding new tile */}
       <Modal
-        visible={modalVisible}
-        animationType="slide"
         transparent
+        visible={modalVisible}
+        animationType="fade"
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Add New Tile</Text>
-            <View style={styles.typeSelector}>
-              <Pressable onPress={() => setNewType('quote')} style={[styles.typeButton, newType === 'quote' && styles.typeButtonSelected]}>
-                <Text>Quote</Text>
-              </Pressable>
-              <Pressable onPress={() => setNewType('link')} style={[styles.typeButton, newType === 'link' && styles.typeButtonSelected]}>
-                <Text>Link</Text>
-              </Pressable>
-              <Pressable onPress={() => setNewType('youtube')} style={[styles.typeButton, newType === 'youtube' && styles.typeButtonSelected]}>
-                <Text>YouTube</Text>
-              </Pressable>
+            
+            <View style={styles.typeRow}>
+              <TouchableOpacity 
+                style={[styles.typeBtn, newType === 'quote' && styles.typeBtnActive]}
+                onPress={() => setNewType('quote')}
+              >
+                <Text style={styles.typeBtnText}>Quote</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.typeBtn, newType === 'link' && styles.typeBtnActive]}
+                onPress={() => setNewType('link')}
+              >
+                <Text style={styles.typeBtnText}>Link</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.typeBtn, newType === 'youtube' && styles.typeBtnActive]}
+                onPress={() => setNewType('youtube')}
+              >
+                <Text style={styles.typeBtnText}>YouTube</Text>
+              </TouchableOpacity>
             </View>
+            
             <TextInput
               style={styles.input}
-              placeholder={`Enter ${newType === 'quote' ? 'quote' : newType === 'link' ? 'link URL' : 'YouTube URL'}`}
+              placeholder={newType === 'quote' ? 'Enter quote...' : newType === 'link' ? 'Enter URL...' : 'Enter YouTube URL...'}
               value={newContent}
               onChangeText={setNewContent}
+              multiline={newType === 'quote'}
             />
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCancel}>
-                <Text>Cancel</Text>
+            
+            <View style={styles.modalButtonRow}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setModalVisible(false)}>
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleAddTile} style={styles.modalAdd}>
-                <Text>Add</Text>
+              <TouchableOpacity style={styles.modalAddBtn} onPress={handleAddTile}>
+                <Text style={styles.modalAddBtnText}>Add</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -342,58 +368,54 @@ function getYouTubeThumbnail(url: string) {
 }
 
 const styles = StyleSheet.create({
-  bg: {
+  container: {
     flex: 1,
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
+    backgroundColor: COLORS.secondary,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    backgroundColor: COLORS.secondary,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   screenTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontSize: 22,
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+    flex: 1,
     textAlign: 'center',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-    position: 'absolute',
-    alignSelf: 'center',
-    zIndex: 10,
+    marginRight: 40, // Balance with back button width
   },
   backButton: {
-    position: 'absolute',
-    left: 20,
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: 'rgba(0,0,0,0.05)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
-    zIndex: 10,
   },
   backButtonText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 22,
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
   },
-  corkContainer: {
-    padding: 24,
-    paddingBottom: 120,
+  tilesContainer: {
+    padding: 16,
+    paddingBottom: 100,
     minHeight: windowHeight,
   },
   tile: {
-    backgroundColor: 'rgba(255,255,255,0.93)',
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 18,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
     minHeight: 80,
@@ -403,28 +425,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   activeTile: {
-    opacity: 0.7,
-    transform: [{ scale: 1.03 }],
+    opacity: 0.8,
+    transform: [{ scale: 1.02 }],
   },
   quoteText: {
     fontSize: 17,
-    fontStyle: 'italic',
-    color: '#6d4c1b',
+    lineHeight: 24,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
     textAlign: 'center',
   },
   linkText: {
     fontSize: 16,
-    color: '#2a6edb',
+    fontFamily: FONTS.regular,
+    color: COLORS.primary,
     textDecorationLine: 'underline',
     textAlign: 'center',
   },
   youtubeWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#000',
-    marginTop: 4,
+    marginTop: 8,
   },
   addBtn: {
     position: 'absolute',
@@ -432,57 +456,112 @@ const styles = StyleSheet.create({
     right: 24,
     zIndex: 10,
   },
-  modalBg: {
+  addBtnInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  addBtnText: {
+    fontSize: 32,
+    fontFamily: FONTS.bold,
+    color: 'white',
+  },
+  modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
     width: 320,
-    backgroundColor: '#fffbe6',
-    borderRadius: 16,
+    backgroundColor: 'white',
+    borderRadius: 20,
     padding: 24,
     elevation: 10,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#b97a56',
-    marginBottom: 16,
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+    marginBottom: 20,
   },
   typeRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 16,
   },
   typeBtn: {
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#eee',
-    marginHorizontal: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    marginHorizontal: 6,
   },
   typeBtnActive: {
-    backgroundColor: '#f7b267',
+    backgroundColor: COLORS.primary,
+  },
+  typeBtnText: {
+    color: COLORS.text,
+    fontFamily: FONTS.medium,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 6,
-    padding: 8,
-    marginBottom: 10,
-    backgroundColor: '#fafcff',
-    width: 240,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    backgroundColor: '#FAFAFA',
+    width: 260,
+    fontSize: 16,
+    fontFamily: FONTS.regular,
   },
-  modalBtn: {
+  modalButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 16,
+  },
+  modalCancelBtn: {
     flex: 1,
-    backgroundColor: '#f7b267',
-    borderRadius: 6,
-    padding: 10,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 12,
+    padding: 14,
     alignItems: 'center',
-    marginHorizontal: 4,
+    marginRight: 8,
+  },
+  modalCancelBtnText: {
+    color: COLORS.text,
+    fontFamily: FONTS.medium,
+  },
+  modalAddBtn: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+    marginLeft: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  modalAddBtnText: {
+    color: 'white',
+    fontFamily: FONTS.medium,
   },
   moveBtnRow: {
     flexDirection: 'row',
@@ -498,12 +577,6 @@ const styles = StyleSheet.create({
   },
   moveBtnDisabled: {
     backgroundColor: '#f0ede5',
-  },
-    modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   typeSelector: {
     flexDirection: 'row',

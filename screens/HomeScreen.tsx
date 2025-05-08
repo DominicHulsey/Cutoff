@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, TextInput, Pressable, Alert, ScrollView, StatusBar, SafeAreaView, Image } from 'react-native';
+import { FONTS } from '../src/constants/fonts';
 // import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -24,13 +25,26 @@ type Tile = {
   imageUrl?: string;
 };
 
+// Modern color palette based on the screenshots
+const COLORS = {
+  primary: '#2A7D4F',       // Main green color
+  secondary: '#F4F4F2',     // Light background
+  accent: '#FFD84D',        // Yellow accent
+  text: '#333333',          // Dark text
+  lightText: '#666666',     // Secondary text
+  cardBg1: '#E8F5E9',       // Light green card
+  cardBg2: '#FFF8E1',       // Light yellow card
+  cardBg3: '#E3F2FD',       // Light blue card
+  cardBg4: '#F3E5F5',       // Light purple card
+};
+
 const defaultTiles: Tile[] = [
-  { id: '1', icon: 'walk-outline', title: 'Take a walk', subtitle: 'Clear your mind', color: '#FFE5B4' },
-  { id: '2', icon: 'water-outline', title: 'Drink water', subtitle: 'Stay hydrated', color: '#D0F0C0' },
-  { id: '3', icon: 'musical-notes-outline', title: 'Listen to music', subtitle: 'Find calm', color: '#F2D0F7' },
-  { id: '4', icon: 'leaf-outline', title: 'Step outside', subtitle: 'Feel the air', color: '#B4E0FF' },
-  { id: '5', icon: 'pencil-outline', title: 'Journal', subtitle: 'Write it out', color: '#F7D6E0' },
-  { id: '6', icon: 'medkit-outline', title: 'Breathe deeply', subtitle: 'Reset your body', color: '#F9F5B4' },
+  { id: '1', icon: 'walk-outline', title: 'Take a walk', subtitle: 'Clear your mind', color: COLORS.cardBg1 },
+  { id: '2', icon: 'water-outline', title: 'Drink water', subtitle: 'Stay hydrated', color: COLORS.cardBg2 },
+  { id: '3', icon: 'musical-notes-outline', title: 'Listen to music', subtitle: 'Find calm', color: COLORS.cardBg3 },
+  { id: '4', icon: 'leaf-outline', title: 'Step outside', subtitle: 'Feel the air', color: COLORS.cardBg4 },
+  { id: '5', icon: 'pencil-outline', title: 'Journal', subtitle: 'Write it out', color: COLORS.cardBg1 },
+  { id: '6', icon: 'medkit-outline', title: 'Breathe deeply', subtitle: 'Reset your body', color: COLORS.cardBg2 },
 ];
 
 const IONICON_OPTIONS = [
@@ -163,43 +177,48 @@ export default function HomeScreen({ navigation }: Props) {
       delayLongPress={500}
       activeOpacity={0.85}
     >
-      {/* Pushpin at the top */}
-      <View style={styles.pushpinContainer}>
-        <View style={[styles.pushpin, { backgroundColor: getPushpinColor(item.id) }]} />
+      <View style={styles.tileContent}>
+        {item.imageUrl ? (
+          <View style={styles.tileImageContainer}>
+            <Image source={{ uri: item.imageUrl }} style={styles.tileImage} />
+          </View>
+        ) : (
+          <View style={styles.tileIconWrap}>
+            <View style={styles.iconCircle}>
+              <Text style={styles.iconText}>{item.title.charAt(0).toUpperCase()}</Text>
+            </View>
+          </View>
+        )}
+        <Text style={styles.tileTitle}>{item.title}</Text>
+        <Text style={styles.tileSubtitle}>{item.subtitle}</Text>
       </View>
       
-      {item.imageUrl ? (
-        <View style={styles.tileImageContainer}>
-          <Image source={{ uri: item.imageUrl }} style={styles.tileImage} />
-        </View>
-      ) : (
-        <View style={styles.tileIconWrap}>
-          {/* <Ionicons name={item.icon as any} size={44} color="#2d2d2d" /> */}
-        </View>
-      )}
-      <Text style={styles.tileTitle}>{item.title}</Text>
-      <Text style={styles.tileSubtitle}>{item.subtitle}</Text>
-      
-      {/* Image generation button */}
-      <Pressable
-        style={styles.imageGenBtn}
-        onPress={() => openImagePromptModal(item.id)}
-      >
-        <Text style={styles.imageGenBtnText}>🖼️</Text>
-      </Pressable>
-      <Pressable
-        style={styles.deleteBtn}
-        onPress={() => confirmDeleteTile(item.id)}
-      >
-        <Text style={styles.deleteBtnText}>×</Text>
-      </Pressable>
+      {/* Action buttons */}
+      <View style={styles.tileActions}>
+        <Pressable
+          style={styles.actionButton}
+          onPress={() => openImagePromptModal(item.id)}
+        >
+          <Text style={styles.actionButtonText}>🖼️</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.actionButton, styles.deleteButton]}
+          onPress={() => confirmDeleteTile(item.id)}
+        >
+          <Text style={styles.actionButtonText}>×</Text>
+        </Pressable>
+      </View>
     </TouchableOpacity>
   );
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={{ marginHorizontal: 24 }}>
+        
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-      <Text style={[styles.greeting, { marginTop: insets.top }]}>Good Afternoon 🌞</Text>
+      <View style={styles.header}>
+        <Text style={[styles.greeting, { marginTop: insets.top / 2, textAlign: 'center' }]}>{"What's on your mind?"}</Text>
+      </View>
       <FlatList
         data={[...tiles, { id: 'add', icon: '', title: '', subtitle: '', color: '' } as Tile]}
         renderItem={({ item }) =>
@@ -209,8 +228,10 @@ export default function HomeScreen({ navigation }: Props) {
               onPress={() => setModalVisible(true)}
               activeOpacity={0.85}
             >
-              {/* <Ionicons name="add" size={44} color="#4A90E2" style={{ marginBottom: 8 }} /> */}
-              <Text style={styles.addTileText}>Add</Text>
+              <View style={styles.addButtonCircle}>
+                <Text style={styles.addButtonText}>+</Text>
+              </View>
+              <Text style={styles.addTileText}>Add New</Text>
             </TouchableOpacity>
           ) : renderTile({ item })
         }
@@ -350,7 +371,8 @@ export default function HomeScreen({ navigation }: Props) {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+         </View>
+ </SafeAreaView>
   );
 }
 
@@ -361,126 +383,178 @@ const getPushpinColor = (id: string) => {
   return colors[numericId % colors.length];
 };
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<any>({
   container: {
     flex: 1,
-    backgroundColor: '#FFFDF8',
-    paddingHorizontal: 20,
+    backgroundColor: COLORS.secondary,
+  },
+  header: {
+    paddingTop: 10,
+    marginBottom: 24,
+  },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  logoText: {
+    fontSize: 22,
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
   },
   greeting: {
-    fontSize: 26,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 28,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.text,
     marginBottom: 20,
   },
   row: {
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   tileGrid: {
     paddingBottom: 20,
   },
   tile: {
     width: '48%',
-    aspectRatio: 1,
-    borderRadius: 4,
-    padding: 18,
+    aspectRatio: 0.9,
+    borderRadius: 16,
+    padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
-    marginBottom: 18,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: 16,
     position: 'relative',
+    overflow: 'hidden',
+  },
+  tileContent: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    // Sticky note appearance
-    backgroundColor: '#fff9c4',
-    borderBottomWidth: 1,
-    borderRightWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
-    paddingTop: 24, // Space for pushpin
+  },
+  tileActions: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
   },
   tileIconWrap: {
-    marginBottom: 12,
+    marginBottom: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    alignSelf: 'center',
+  },
+  iconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
     shadowRadius: 2,
-    elevation: 1,
-  },
-  addTile: {
-    backgroundColor: '#e7f0fd',
-    borderStyle: 'dashed',
-    borderWidth: 2,
-    borderColor: '#4A90E2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addTileText: {
-    color: '#4A90E2',
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginTop: 4,
+    elevation: 2,
   },
   tileTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2d2d2d',
-    marginTop: 2,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.text,
+    marginTop: 8,
+    marginBottom: 4,
     textAlign: 'center',
   },
   tileSubtitle: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 2,
+    fontFamily: FONTS.regular,
+    color: COLORS.lightText,
     textAlign: 'center',
   },
-  deleteBtn: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,0,0,0.1)',
+  actionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 2,
+    marginLeft: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    elevation: 2,
   },
-  deleteBtnText: {
-    fontSize: 20,
-    color: '#FF3B30',
-    fontWeight: 'bold',
+  deleteButton: {
+    backgroundColor: 'rgba(255,59,48,0.1)',
+  },
+  actionButtonText: {
+    fontSize: 18,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.primary,
   },
   tileLongPress: {
     transform: [{ scale: 1.05 }],
     shadowOpacity: 0.3,
     shadowRadius: 6,
   },
-  pushpinContainer: {
-    position: 'absolute',
-    top: 5,
-    alignSelf: 'center',
-    zIndex: 10,
-  },
-  pushpin: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#e74c3c',
+  tileImageContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
     shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 1, height: 1 },
-    shadowRadius: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
     elevation: 2,
+  },
+  tileImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  addTile: {
+    backgroundColor: 'rgba(42, 125, 79, 0.1)',
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addButtonCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  addButtonText: {
+    color: 'white',
+    fontSize: 32,
+    fontFamily: FONTS.bold,
+  },
+  addTileText: {
+    color: COLORS.primary,
+    fontFamily: FONTS.semiBold,
+    fontSize: 16,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   confirmModalContent: {
     width: 280,
@@ -496,14 +570,16 @@ const styles = StyleSheet.create({
   },
   confirmTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontFamily: FONTS.semiBold,
     marginBottom: 10,
     color: '#333',
   },
   confirmText: {
     fontSize: 14,
+    fontFamily: FONTS.regular,
     color: '#666',
     textAlign: 'center',
+    shadowRadius: 15,
   },
   confirmBtn: {
     flex: 1,
@@ -517,94 +593,62 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: {
     color: '#333',
-    fontWeight: '500',
+    fontFamily: FONTS.medium,
   },
   deleteConfirmBtn: {
     backgroundColor: '#FF3B30',
   },
   deleteConfirmText: {
     color: '#fff',
-    fontWeight: '500',
-  },
-  tileImageContainer: {
-    width: '100%',
-    height: 100,
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginVertical: 8,
-  },
-  tileImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  imageGenBtn: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  imageGenBtnText: {
-    fontSize: 16,
-  },
-  addBtn: {
-    position: 'absolute',
-    bottom: 30,
-    right: 20,
-    backgroundColor: 'transparent',
-    borderRadius: 28,
-    elevation: 5,
-  },
-  modalBg: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: 300,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    elevation: 10,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 6,
-    padding: 8,
-    marginBottom: 10,
-    backgroundColor: '#fafcff',
+    fontFamily: FONTS.medium,
   },
   iconDropdown: {
     maxHeight: 160,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#eee',
     borderRadius: 6,
-    backgroundColor: '#fff',
     marginBottom: 10,
-    marginTop: 2,
+    backgroundColor: '#fafcff',
+    width: 240,
+    padding: 10,
   },
-  iconOption: {
-    flexDirection: 'row',
+  input: {
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    backgroundColor: '#FAFAFA',
+    fontSize: 16,
+    fontFamily: FONTS.regular,
+  },
+  modalContent: {
+    width: 320,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 24,
+    elevation: 10,
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
   },
   modalBtn: {
     flex: 1,
-    backgroundColor: '#4A90E2',
-    borderRadius: 6,
-    padding: 10,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    padding: 14,
     alignItems: 'center',
     marginHorizontal: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
+  modalBtnText: {
+    color: '#fff',
+    fontFamily: FONTS.medium,
+  }
 });
