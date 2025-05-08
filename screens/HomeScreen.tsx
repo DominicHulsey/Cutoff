@@ -80,56 +80,6 @@ export default function HomeScreen({ navigation }: Props) {
 
   // Animation functions
   const showForm = () => {
-    // Reset the new tile data
-    setNewTile({});
-    // Show the form
-    setFormVisible(true);
-    
-    // Start animations
-    Animated.parallel([
-      Animated.timing(animatedBackdropOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(animatedFormOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.spring(animatedFormScale, {
-        toValue: 1,
-        friction: 8,
-        tension: 40,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const hideForm = () => {
-    Animated.parallel([
-      Animated.timing(animatedBackdropOpacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(animatedFormOpacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(animatedFormScale, {
-        toValue: 0.8,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setFormVisible(false);
-    });
-  };
-
-  // Animation functions
-  const showForm = () => {
     setNewTile({ title: '', subtitle: '' });
     setFormVisible(true);
     animatedFormTranslateY.setValue(60); // Reset
@@ -222,64 +172,11 @@ export default function HomeScreen({ navigation }: Props) {
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       
       <View style={[styles.header, { marginTop: insets.top / 2 }]}>
-        <Text style={[styles.greeting, { textAlign: 'center' }]}>What's on your mind?</Text>
+        <Text style={styles.greeting}>What's on your mind?</Text>
       </View>
       
       <FlatList
-        data={[...tiles, { id: 'add', icon: '', title: '', subtitle: '', color: '' } as Tile]}
-        renderItem={renderTile}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.tileGrid}
-        showsVerticalScrollIndicator={false}
-      />
-      
-      {formVisible && (
-        <Animated.View 
-          style={[styles.formOverlay, { opacity: animatedBackdropOpacity }]}
-        >
-          <Pressable style={styles.backdropPress} onPress={hideForm} />
-          
-          <Animated.View
-            style={[
-              styles.formContainer,
-              {
-                opacity: animatedFormOpacity,
-                transform: [
-                  { scale: animatedFormScale },
-                  { translateY: animatedFormTranslateY }
-                ],
-              },
-            ]}
-          >
-            <Text style={styles.formTitle}>Create a New Tile</Text>
-            
-            <TextInput
-              style={styles.input}
-              placeholder="Title"
-              value={newTile.title}
-              onChangeText={text => setNewTile(prev => ({ ...prev, title: text }))}
-              placeholderTextColor="#999"
-            />
-            
-            <TextInput
-              style={styles.input}
-              placeholder="Subtitle"
-              value={newTile.subtitle}
-              onChangeText={text => setNewTile(prev => ({ ...prev, subtitle: text }))}
-              placeholderTextColor="#999"
-            />
-            
-            <TouchableOpacity 
-              style={styles.rewireButton} 
-              onPress={handleAddTile}
-            >
-              <View style={styles.addButtonCircle}>
-                <Text style={styles.addButtonText}>+</Text>
-              </View>
-              <Text style={styles.addTileText}>Add New</Text>
-            </TouchableOpacity>
-          ) : renderTile({ item })
-        }
+        data={[...tiles, { id: 'add', title: '', subtitle: '' } as Tile]}
         renderItem={renderTile}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.tileGrid}
