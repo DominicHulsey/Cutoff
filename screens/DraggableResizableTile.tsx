@@ -3,16 +3,17 @@ import { Text, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  useAnimatedGestureHandler,
   runOnJS,
 } from 'react-native-reanimated';
 import {
-  PanGestureHandler,
-  PinchGestureHandler,
-  RotationGestureHandler,
-  PanGestureHandlerGestureEvent,
-  PinchGestureHandlerGestureEvent,
-  RotationGestureHandlerGestureEvent,
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+  PanGestureHandlerEventPayload,
+  PinchGestureHandlerEventPayload,
+  RotationGestureHandlerEventPayload,
+  GestureUpdateEvent,
+  GestureStateChangeEvent,
 } from 'react-native-gesture-handler';
 
 type Props = {
@@ -35,21 +36,21 @@ const DraggableResizableTile: React.FC<Props> = ({
   const transY = useSharedValue(y);
   const scale = useSharedValue(1);
   const rotateZ = useSharedValue(rotation);
-
-  // Drag handler
-  const panHandler = useAnimatedGestureHandler<PanGestureHandlerGestureEvent, {startX: number, startY: number}>({
-    onStart: (_, ctx) => {
-      'worklet';
-      ctx.startX = transX.value;
-      ctx.startY = transY.value;
-    },
-    onActive: (event, ctx) => {
-      'worklet';
-      transX.value = ctx.startX + event.translationX;
-      transY.value = ctx.startY + event.translationY;
-    },
-    onEnd: () => {
-      'worklet';
+  
+  // Pan gesture (for dragging)
+  const panGesture = Gesture.Pan()
+    .onBegin(() => {
+      // Initialize
+    })
+    .onStart(() => {
+      // Store initial position
+    })
+    .onUpdate((event) => {
+      // Update position based on gesture
+      transX.value = x + event.translationX;
+      transY.value = y + event.translationY;
+    })
+    .onEnd(() => {
       runOnJS(onUpdate)({
         x: transX.value,
         y: transY.value,
@@ -57,17 +58,14 @@ const DraggableResizableTile: React.FC<Props> = ({
         height: height * scale.value,
         rotation: rotateZ.value,
       });
-    },
-  });
+    });
 
-  // Pinch handler for resizing
-  const pinchHandler = useAnimatedGestureHandler<PinchGestureHandlerGestureEvent>({
-    onActive: (event) => {
-      'worklet';
+  // Pinch gesture (for resizing)
+  const pinchGesture = Gesture.Pinch()
+    .onUpdate((event) => {
       scale.value = event.scale;
-    },
-    onEnd: () => {
-      'worklet';
+    })
+    .onEnd(() => {
       runOnJS(onUpdate)({
         x: transX.value,
         y: transY.value,
@@ -75,17 +73,14 @@ const DraggableResizableTile: React.FC<Props> = ({
         height: height * scale.value,
         rotation: rotateZ.value,
       });
-    },
-  });
+    });
 
-  // Rotation handler
-  const rotationHandler = useAnimatedGestureHandler<RotationGestureHandlerGestureEvent>({
-    onActive: (event) => {
-      'worklet';
+  // Rotation gesture
+  const rotationGesture = Gesture.Rotation()
+    .onUpdate((event) => {
       rotateZ.value = rotation + event.rotation;
-    },
-    onEnd: () => {
-      'worklet';
+    })
+    .onEnd(() => {
       runOnJS(onUpdate)({
         x: transX.value,
         y: transY.value,
@@ -93,12 +88,16 @@ const DraggableResizableTile: React.FC<Props> = ({
         height: height * scale.value,
         rotation: rotateZ.value,
       });
-    },
-  });
+    });
+    
+  // Combine gestures - make sure each gesture can work independently
+  const combinedGestures = Gesture.Race(
+    panGesture,
+    Gesture.Simultaneous(pinchGesture, rotationGesture)
+  );
 
   // Animated style
   const animatedStyle = useAnimatedStyle(() => {
-    'worklet';  
     return {
       position: 'absolute',
       left: 0,
@@ -115,19 +114,15 @@ const DraggableResizableTile: React.FC<Props> = ({
   });
 
   return (
-    <PanGestureHandler onGestureEvent={panHandler}>
-      <Animated.View style={[styles.tile, animatedStyle]}>
-        <PinchGestureHandler onGestureEvent={pinchHandler}>
-          <Animated.View style={{ flex: 1 }}>
-            <RotationGestureHandler onGestureEvent={rotationHandler}>
-              <Animated.View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <Text>{content}</Text>
-              </Animated.View>
-            </RotationGestureHandler>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <GestureDetector gesture={combinedGestures}>
+        <Animated.View style={[styles.tile, animatedStyle]}>
+          <Animated.View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text>{content}</Text>
           </Animated.View>
-        </PinchGestureHandler>
-      </Animated.View>
-    </PanGestureHandler>
+        </Animated.View>
+      </GestureDetector>
+    </GestureHandlerRootView>
   );
 };
 
