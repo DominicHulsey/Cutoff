@@ -11,9 +11,9 @@ import {
   StatusBar, 
   SafeAreaView,
   Animated,
-  Easing,
   Dimensions,
-  Modal
+  Modal,
+  Easing
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { FONTS } from '../src/constants/fonts';
@@ -52,31 +52,152 @@ const defaultTiles: Tile[] = [
 
 export default function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const [tiles, setTiles] = useState<Tile[]>([]);
+  const [tiles, setTiles] = useState<Tile[]>(defaultTiles);
   const [formVisible, setFormVisible] = useState(false);
   const [newTile, setNewTile] = useState<Partial<Tile>>({});
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [tileToDelete, setTileToDelete] = useState<string | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
   
-  // Animation values
+  // Title animations
+  const titleOpacity = useRef(new Animated.Value(0.25)).current;
+  const line1TranslateX = useRef(new Animated.Value(-100)).current;
+  const line2TranslateX = useRef(new Animated.Value(100)).current;
+  const line3TranslateY = useRef(new Animated.Value(20)).current;
+  
+  // Card animations
+  const cardAnimationsRef = useRef<Animated.Value[]>([]);
+  const [cardAnimations, setCardAnimations] = useState<Animated.Value[]>([]);
+  
+  // Form animations
   const animatedFormOpacity = useRef(new Animated.Value(0)).current;
   const animatedFormScale = useRef(new Animated.Value(0.8)).current;
   const animatedBackdropOpacity = useRef(new Animated.Value(0)).current;
   const animatedFormTranslateY = useRef(new Animated.Value(60)).current; // Start 60px below center
   const { width, height } = Dimensions.get('window');
 
+  // Function to run the animations
+  const runAnimations = () => {
+    // Set animating state
+    setIsAnimating(true);
+    
+    // Reset animation values
+    titleOpacity.setValue(0.25);
+    line1TranslateX.setValue(-100);
+    line2TranslateX.setValue(100);
+    line3TranslateY.setValue(20);
+    
+    // Reset card animations
+    cardAnimations.forEach(anim => anim.setValue(0));
+    
+    // Start title and card animations in parallel
+    Animated.parallel([
+      // Title animations
+      Animated.timing(titleOpacity, {
+        toValue: 1,
+        duration: 1200,
+        useNativeDriver: true,
+        easing: Easing.out(Easing.back(0.25))
+      }),
+      // Line animations
+      Animated.parallel([
+        // Line 1 from left
+        Animated.timing(line1TranslateX, {
+          toValue: 0,
+          duration: 650,
+          delay: 0, // Small delay to let title start fading in
+          useNativeDriver: true,
+          easing: Easing.out(Easing.back(0))
+        }),
+        // Line 2 from right
+        Animated.timing(line2TranslateX, {
+          toValue: 0,
+          duration: 650,
+          delay: 100,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.back(0))
+        }),
+        // Line 3 from bottom
+        Animated.timing(line3TranslateY, {
+          toValue: 0,
+          duration: 650,
+          delay: 100,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.back(0))
+        })
+      ])
+    ]).start(() => {
+      // Animation complete
+      setIsAnimating(false);
+    });
+  };
+
+  // Load tiles and start animations when component mounts
   React.useEffect(() => {
     (async () => {
       const stored = await AsyncStorage.getItem('tiles');
       if (stored) setTiles(JSON.parse(stored));
       else setTiles(defaultTiles);
     })();
+    
+    // Run animations on initial load
+    runAnimations();
   }, []);
 
   // Save tiles to storage whenever they change
   useEffect(() => {
     AsyncStorage.setItem('tiles', JSON.stringify(tiles));
+    if (tiles.length === 0) {
+      setTiles(defaultTiles)
+    }
+    // Update card animations array when tiles change
+    const newAnimations = tiles.map((_, i) => {
+      if (i >= cardAnimations.length) {
+        return new Animated.Value(0);
+      }
+      return cardAnimations[i];
+    });
+    
+    // Animate new cards
+    if (newAnimations.length > cardAnimations.length) {
+      const newCardIndex = newAnimations.length - 1;
+      Animated.timing(newAnimations[newCardIndex], {
+        toValue: 1,
+        duration: 500,
+        delay: 100,
+        useNativeDriver: true,
+        easing: Easing.out(Easing.ease)
+      }).start();
+    }
+    
+    // Update animations state
+    setCardAnimations(newAnimations);
+    cardAnimationsRef.current = newAnimations;
   }, [tiles]);
+  
+  // Initialize and start card animations when component mounts
+  useEffect(() => {
+    if (tiles.length > 0 && cardAnimations.length === 0) {
+      // Create animations for initial cards
+      const initialAnimations = tiles.map(() => new Animated.Value(0));
+      setCardAnimations(initialAnimations);
+      cardAnimationsRef.current = initialAnimations;
+      
+      // Animate all cards with staggered timing
+      Animated.stagger(
+        100, // Stagger each card by 100ms
+        initialAnimations.map((anim, index) => 
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: 600,
+            delay: 200, // Start around the same time as the title
+            useNativeDriver: true,
+            easing: Easing.out(Easing.ease)
+          })
+        )
+      ).start();
+    }
+  }, [tiles.length]);
 
   // Animation functions
   const showForm = () => {
@@ -140,62 +261,124 @@ export default function HomeScreen({ navigation }: Props) {
     setDeleteConfirmVisible(false);
   };
 
-  const renderTile = ({ item }: { item: Tile }) => (
-    <TouchableOpacity
-      style={styles.tile}
-      onPress={() => item.id === 'add' ? showForm() : navigation.navigate('Details', { tile: item })}
-      activeOpacity={0.7}
-    >
-      {item.id === 'add' ? (
-        <View style={styles.addTileContent}>
-          <View style={styles.addButtonCircle}>
-            <Text style={styles.addButtonText}>+</Text>
-          </View>
-          <Text style={styles.addTileText}>Add New Tile</Text>
-        </View>
-      ) : (
-        <LinearGradient
-          colors={['#E8F5E9', '#2A7D4F']} 
-          start={{x: 0, y: 0}}
-          end={{x: 0, y: 1}}
-          style={styles.tileContent}
+  // Render individual tile
+  const renderTile = ({ item, index }: { item: Tile, index: number }) => {
+    // Use existing animation for existing cards, create new one for new cards
+    const animation = index < cardAnimations.length ? cardAnimations[index] : new Animated.Value(0);
+    
+    return (
+      <Animated.View
+        style={[
+          styles.cardContainer,
+          {
+            opacity: animation,
+            transform: [
+              { translateY: animation.interpolate({
+                inputRange: [0, 1],
+                outputRange: [50, 0]
+              })}
+            ]
+          }
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => item.id === 'add' ? showForm() : navigation.navigate('Details', { tile: item })}
+          activeOpacity={0.7}
         >
-          <Text style={styles.tileTitle}>{item.title}</Text>
-          <Text style={styles.tileSubtitle}>{item.subtitle}</Text>
-        </LinearGradient>
-      )}
-    </TouchableOpacity>
-  );
+          <View style={styles.bracketLeft} />
+          <View style={styles.cardContent}>
+            {item.id === 'add' ? (
+              <Text style={styles.cardText}>Add New Card</Text>
+            ) : (
+              <Text style={styles.cardText}>{item.title}</Text>
+            )}
+          </View>
+          <View style={styles.bracketRight} />
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle="light-content" backgroundColor="black" />
       
-      <View style={[styles.header, { marginTop: insets.top / 2 }]}>
-        <Text style={styles.greeting}>What's on your mind?</Text>
+      {/* Animated Title */}
+      <View style={styles.titleContainer}>
+        <Animated.Text style={[styles.titleText, { opacity: titleOpacity }]}>
+          Let's Rewrite
+        </Animated.Text>
+        <View style={styles.linesContainer}>
+          <Animated.View 
+            style={[styles.titleLine1, { 
+              transform: [{ translateX: line1TranslateX }] 
+            }]}
+          />
+          <Animated.View 
+            style={[styles.titleLine2, { 
+              transform: [{ translateX: line2TranslateX }] 
+            }]}
+          />
+          <Animated.View 
+            style={[styles.titleLine3, { 
+              transform: [{ translateY: line3TranslateY }] 
+            }]}
+          />
+        </View>
+        <View style={{flexDirection: 'row', gap: 10, position: 'absolute', top: -60}}>
+
+        {/* Animation reset button */}
+        <TouchableOpacity 
+          style={styles.animateButton}
+          onPress={runAnimations}
+          disabled={isAnimating}
+        >
+          <Text style={styles.animateButtonText}>
+            {isAnimating ? 'Animating...' : 'Replay Animation'}
+          </Text>
+        </TouchableOpacity>
+                <TouchableOpacity 
+          style={styles.animateButton}
+          onPress={async() => {
+          await AsyncStorage.setItem('tiles', '');
+          setTiles(defaultTiles);
+          }}
+          disabled={isAnimating}
+        >
+          <Text style={styles.animateButtonText}>
+            Reset Tiles
+          </Text>
+        </TouchableOpacity>
       </View>
-      
+              </View>
+
+      {/* Cards List */}
       <FlatList
         data={[...tiles, { id: 'add', title: '', subtitle: '' } as Tile]}
         renderItem={renderTile}
         keyExtractor={item => item.id}
-        contentContainerStyle={styles.tileGrid}
+        contentContainerStyle={styles.cardsContainer}
         showsVerticalScrollIndicator={false}
       />
       
+      {/* Add Tile Form */}
       {formVisible && (
         <Animated.View 
           style={[styles.formOverlay, { opacity: animatedBackdropOpacity }]}
         >
           <Pressable style={styles.backdropPress} onPress={hideForm} />
           
-          <Animated.View 
+          <Animated.View
             style={[
               styles.formContainer,
               {
                 opacity: animatedFormOpacity,
-                transform: [{ scale: animatedFormScale }]
-              }
+                transform: [
+                  { scale: animatedFormScale },
+                  { translateY: animatedFormTranslateY }
+                ],
+              },
             ]}
           >
             <Text style={styles.formTitle}>Create a New Tile</Text>
@@ -262,65 +445,108 @@ export default function HomeScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  header: {
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-  },
-  greeting: {
-    fontSize: 24,
-    fontFamily: 'Lato-Bold',
-    color: '#333333',
-  },
-  tileGrid: {
-    padding: 24,
-  },
-  tile: {
-    marginBottom: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  addTileContent: {
-    padding: 24,
-    backgroundColor: '#F4F4F2',
-    borderRadius: 16,
-    justifyContent: 'center',
     alignItems: 'center',
   },
-  addButtonCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  // Title styles
+  titleContainer: {
+    alignItems: 'center',
+    marginTop: 40,
+    marginBottom: 40,
+  },
+  animateButton: {
     backgroundColor: '#2A7D4F',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    marginTop: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
   },
-  addButtonText: {
-    fontSize: 24,
-    fontFamily: 'Lato-Bold',
+  animateButtonText: {
     color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: FONTS.medium,
+    textAlign: 'center',
   },
-  addTileText: {
-    fontSize: 16,
-    fontFamily: 'Lato-Regular',
-    color: '#666666',
+  titleText: {
+    fontSize: 48,
+    fontFamily: FONTS.bold,
+    color: '#000',
+    marginBottom: 10,
   },
-  tileContent: {
-    padding: 24,
-    borderRadius: 16,
+  linesContainer: {
+    alignItems: 'center',
+    width: '100%',
+    height: 30,
   },
-  tileTitle: {
-    fontSize: 18,
-    fontFamily: 'Lato-Bold',
-    color: '#333333',
-    marginBottom: 4,
+  titleLine1: {
+    position: 'absolute',
+    top: 0,
+    width: 300,
+    height: 3,
+    backgroundColor: '#000',
   },
-  tileSubtitle: {
-    fontSize: 16,
-    fontFamily: 'Lato-Regular',
-    color: '#666666',
+  titleLine2: {
+    position: 'absolute',
+    top: 10,
+    width: 200,
+    height: 3,
+    backgroundColor: '#000',
+  },
+  titleLine3: {
+    position: 'absolute',
+    top: 20,
+    width: 100,
+    height: 3,
+    backgroundColor: '#000',
+  },
+  // Card styles
+  cardsContainer: {
+    paddingBottom: 40,
+    width: '100%',
+  },
+  cardContainer: {
+    marginBottom: 30,
+    width: '100%',
+  },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  bracketLeft: {
+    width: 30,
+    height: 100,
+    borderLeftWidth: 5,
+    borderTopWidth: 5,
+    borderBottomWidth: 5,
+    borderColor: '#000',
+    borderTopLeftRadius: 15,
+    borderBottomLeftRadius: 15,
+  },
+  bracketRight: {
+    width: 30,
+    height: 100,
+    borderRightWidth: 5,
+    borderTopWidth: 5,
+    borderBottomWidth: 5,
+    borderColor: '#000',
+    borderTopRightRadius: 15,
+    borderBottomRightRadius: 15,
+  },
+  cardContent: {
+    width: '60%',
+    alignItems: 'center',
+  },
+  cardText: {
+    fontSize: 22,
+    fontFamily: FONTS.medium,
+    color: '#000',
+    textAlign: 'center',
   },
   formOverlay: {
     position: 'absolute',
