@@ -399,7 +399,6 @@ transform: [
     {editMode ? 'Done' : 'Edit'}
   </Text>
 </TouchableOpacity>
-        <Text style={styles.headerTitle}>{tile.title}</Text>
       </View>
       
       <ScrollView 
@@ -418,17 +417,16 @@ transform: [
         </View>
       </ScrollView>
       
-      {/* Floating Action Button to add new tiles */}
+      {editMode && (
       <TouchableOpacity 
         style={styles.addBtn}
         onPress={() => setModalVisible(true)}
       >
-        <View style={styles.addBtnInner}>
+          <View style={styles.addBtnInner}>
           <Text style={styles.addBtnText}>+</Text>
         </View>
       </TouchableOpacity>
-      
-      {/* Modal for adding new tile */}
+        )}
       <Modal
         animationType="fade"
         transparent={true}
@@ -560,7 +558,6 @@ transform: [
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.secondary,
   },
   editToggleText: {
   padding: 8,
@@ -573,11 +570,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 12,
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#EEEEEE',
-    backgroundColor: 'white',
   },
   backButton: {
     padding: 8,
