@@ -1,6 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { Text, StyleSheet, View, Image, Modal, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
-import { FONTS } from '../src/constants/fonts';
+import React, {useEffect, useState} from 'react';
+import {
+  Text,
+  StyleSheet,
+  View,
+  Image,
+  Modal,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+} from 'react-native';
+import {FONTS} from '../src/constants/fonts';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -32,7 +40,14 @@ type Props = {
   rotation: number;
   type: string;
   content: string;
-  onUpdate: (updates: { x: number; y: number; width: number; height: number; rotation: number }) => void;
+  onUpdate: (updates: {
+    id: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    rotation: number;
+  }) => void;
   onDuplicate?: (id: string) => void;
   onDelete?: (id: string) => void;
   onEdit?: (id: string, type: string, content: string) => void;
@@ -40,26 +55,37 @@ type Props = {
 
 // Modern color palette based on the screenshots
 const COLORS = {
-  primary: '#2A7D4F',       // Main green color
-  secondary: '#F4F4F2',     // Light background
-  accent: '#FFD84D',        // Yellow accent
-  text: '#333333',          // Dark text
-  lightText: '#666666',     // Secondary text
-  cardBg1: '#E8F5E9',       // Light green card
-  cardBg2: '#FFF8E1',       // Light yellow card
-  cardBg3: '#E3F2FD',       // Light blue card
-  cardBg4: '#F3E5F5',       // Light purple card
+  primary: '#2A7D4F', // Main green color
+  secondary: '#F4F4F2', // Light background
+  accent: '#FFD84D', // Yellow accent
+  text: '#333333', // Dark text
+  lightText: '#666666', // Secondary text
+  cardBg1: '#E8F5E9', // Light green card
+  cardBg2: '#FFF8E1', // Light yellow card
+  cardBg3: '#E3F2FD', // Light blue card
+  cardBg4: '#F3E5F5', // Light purple card
 };
 
 // Accent colors for tile elements
 const ACCENT_COLORS = ['#2A7D4F', '#FF9800', '#5E35B1', '#1E88E5', '#43A047'];
 
 const DraggableResizableTile: React.FC<Props> = ({
-  id, x, y, width, height, rotation, type, content, onUpdate, onDuplicate, onDelete, onEdit,
+  id,
+  x,
+  y,
+  width,
+  height,
+  rotation,
+  type,
+  content,
+  onUpdate,
+  onDuplicate,
+  onDelete,
+  onEdit,
 }) => {
   // State for the action modal
   const [actionModalVisible, setActionModalVisible] = useState(false);
-  const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
+  const [modalPosition, setModalPosition] = useState({x: 0, y: 0});
   // Shared values for position, scale, and rotation
   const transX = useSharedValue(x);
   const transY = useSharedValue(y);
@@ -69,7 +95,7 @@ const DraggableResizableTile: React.FC<Props> = ({
   const finalWidth = useSharedValue(width);
   const finalHeight = useSharedValue(height);
   const accentColor = ACCENT_COLORS[parseInt(id, 10) % ACCENT_COLORS.length];
-  
+
   // Update shared values when props change (for persistence when navigating back)
   useEffect(() => {
     transX.value = x;
@@ -78,7 +104,7 @@ const DraggableResizableTile: React.FC<Props> = ({
     finalWidth.value = width;
     finalHeight.value = height;
   }, [x, y, width, height, rotation]);
-  
+
   // Pan gesture (for dragging)
   const panGesture = Gesture.Pan()
     .onBegin(() => {
@@ -87,7 +113,7 @@ const DraggableResizableTile: React.FC<Props> = ({
     .onStart(() => {
       // No need to store initial position as we're using the current values
     })
-    .onUpdate((event) => {
+    .onUpdate(event => {
       // Update position based on gesture
       transX.value = x + event.translationX;
       transY.value = y + event.translationY;
@@ -96,6 +122,7 @@ const DraggableResizableTile: React.FC<Props> = ({
       isActive.value = false;
       // Only update position, not size
       runOnJS(onUpdate)({
+        id: id,
         x: transX.value,
         y: transY.value,
         width: finalWidth.value,
@@ -109,7 +136,7 @@ const DraggableResizableTile: React.FC<Props> = ({
     .onBegin(() => {
       isActive.value = true;
     })
-    .onUpdate((event) => {
+    .onUpdate(event => {
       scale.value = event.scale;
       finalWidth.value = width * event.scale;
       finalHeight.value = height * event.scale;
@@ -118,6 +145,7 @@ const DraggableResizableTile: React.FC<Props> = ({
       isActive.value = false;
       // Update with calculated final dimensions and reset scale
       runOnJS(onUpdate)({
+        id: id,
         x: transX.value,
         y: transY.value,
         width: finalWidth.value,
@@ -133,12 +161,13 @@ const DraggableResizableTile: React.FC<Props> = ({
     .onBegin(() => {
       isActive.value = true;
     })
-    .onUpdate((event) => {
+    .onUpdate(event => {
       rotateZ.value = rotation + event.rotation;
     })
     .onEnd(() => {
       isActive.value = false;
       runOnJS(onUpdate)({
+        id: id,
         x: transX.value,
         y: transY.value,
         width: finalWidth.value,
@@ -146,18 +175,18 @@ const DraggableResizableTile: React.FC<Props> = ({
         rotation: rotateZ.value,
       });
     });
-    
+
   // Long press gesture for showing the action modal
   const longPressGesture = Gesture.LongPress()
     .minDuration(600)
-    .onStart((event) => {
+    .onStart(event => {
       // Trigger haptic feedback
       runOnJS(ReactNativeHapticFeedback.trigger)('impactMedium', hapticOptions);
-      
+
       // Calculate modal position near the touch point
       runOnJS(setModalPosition)({
         x: transX.value + finalWidth.value / 2,
-        y: transY.value + finalHeight.value / 2
+        y: transY.value + finalHeight.value / 2,
       });
       runOnJS(setActionModalVisible)(true);
     });
@@ -166,7 +195,7 @@ const DraggableResizableTile: React.FC<Props> = ({
   const combinedGestures = Gesture.Race(
     panGesture,
     Gesture.Simultaneous(pinchGesture, rotationGesture),
-    longPressGesture
+    longPressGesture,
   );
 
   // Animated style for the tile
@@ -178,10 +207,10 @@ const DraggableResizableTile: React.FC<Props> = ({
       width: finalWidth.value * scale.value,
       height: finalHeight.value * scale.value,
       transform: [
-        { translateX: transX.value },
-        { translateY: transY.value },
-        { scale: isActive.value ? withSpring(1.05) : withSpring(1) },
-        { rotateZ: `${rotateZ.value}rad` },
+        {translateX: transX.value},
+        {translateY: transY.value},
+        {scale: isActive.value ? withSpring(1.05) : withSpring(1)},
+        {rotateZ: `${rotateZ.value}rad`},
       ] as any,
       opacity: isActive.value ? withTiming(0.9) : withTiming(1),
       zIndex: isActive.value ? 10 : 1,
@@ -213,15 +242,15 @@ const DraggableResizableTile: React.FC<Props> = ({
   };
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{flex: 1}}>
       <GestureDetector gesture={combinedGestures}>
         <Animated.View style={[styles.tile, animatedStyle]}>
           <Animated.View style={styles.contentContainer}>
             {/* Header with accent color */}
-            <View style={[styles.tileHeader, { backgroundColor: accentColor }]}>
+            <View style={[styles.tileHeader, {backgroundColor: accentColor}]}>
               <View style={styles.headerDot} />
             </View>
-            
+
             {/* Content area */}
             <View style={styles.textContainer}>
               <Text style={styles.contentText}>{content}</Text>
@@ -235,29 +264,36 @@ const DraggableResizableTile: React.FC<Props> = ({
         transparent
         visible={actionModalVisible}
         animationType="fade"
-        onRequestClose={() => setActionModalVisible(false)}
-      >
+        onRequestClose={() => setActionModalVisible(false)}>
         <TouchableWithoutFeedback onPress={() => setActionModalVisible(false)}>
           <View style={styles.modalOverlay}>
-            <View 
+            <View
               style={[
-                styles.actionModal, 
+                styles.actionModal,
                 {
                   left: modalPosition.x - 75, // Center the modal horizontally
-                  top: modalPosition.y - 60,  // Position above the center point
-                }
-              ]}
-            >
-              <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
+                  top: modalPosition.y - 60, // Position above the center point
+                },
+              ]}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={handleEdit}>
                 <Text style={styles.actionButtonText}>Edit</Text>
               </TouchableOpacity>
               <View style={styles.actionDivider} />
-              <TouchableOpacity style={styles.actionButton} onPress={handleDuplicate}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={handleDuplicate}>
                 <Text style={styles.actionButtonText}>Duplicate</Text>
               </TouchableOpacity>
               <View style={styles.actionDivider} />
-              <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={handleDelete}>
-                <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Delete</Text>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.deleteButton]}
+                onPress={handleDelete}>
+                <Text
+                  style={[styles.actionButtonText, styles.deleteButtonText]}>
+                  Delete
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -274,7 +310,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowRadius: 4,
     elevation: 3,
   },
@@ -290,7 +326,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 6,

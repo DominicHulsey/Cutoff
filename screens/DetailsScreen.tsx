@@ -1,35 +1,35 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  Modal, 
-  TextInput, 
+import React, {useState, useRef, useEffect} from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  TextInput,
   ScrollView,
-  Dimensions, 
-  StatusBar, 
-  SafeAreaView, 
+  Dimensions,
+  StatusBar,
+  SafeAreaView,
   Animated,
   PanResponder,
   Linking,
   Pressable,
-  Alert
+  Alert,
 } from 'react-native';
-import { FONTS } from '../src/constants/fonts';
+import {FONTS} from '../src/constants/fonts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../App';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import {NativeStackScreenProps} from '@react-navigation/native-stack';
+import {RootStackParamList} from '../App';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useFocusEffect} from '@react-navigation/native';
 
 // Modern color palette
 const COLORS = {
-  primary: '#2A7D4F',       // Main green color
-  secondary: '#F4F4F2',     // Light background
-  accent: '#FFD84D',        // Yellow accent
-  text: '#333333',          // Dark text
-  lightText: '#666666',     // Secondary text
+  primary: '#2A7D4F', // Main green color
+  secondary: '#F4F4F2', // Light background
+  accent: '#FFD84D', // Yellow accent
+  text: '#333333', // Dark text
+  lightText: '#666666', // Secondary text
 };
 
 const windowWidth = Dimensions.get('window').width;
@@ -55,7 +55,7 @@ type CorkTile = {
 const getYouTubeVideoId = (url: string): string | null => {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
   const match = url.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : null;
+  return match && match[2].length === 11 ? match[2] : null;
 };
 
 // Helper function to get YouTube thumbnail
@@ -63,261 +63,185 @@ const getYouTubeThumbnail = (videoId: string): string => {
   return `https://img.youtube.com/vi/${videoId}/0.jpg`;
 };
 
-function DetailsScreen({ navigation, route }: Props) {
+function DetailsScreen({navigation, route}: Props) {
   const insets = useSafeAreaInsets();
-  const { tile } = route.params;
+  const {tile} = route.params;
   const [tiles, setTiles] = useState<CorkTile[]>([]);
+  const tilesRef = useRef<CorkTile[]>([]); // ✅ Track live tiles
   const [isLoading, setIsLoading] = useState(true);
   const storageKey = `detail_tiles_${tile.id}`;
-  const panRefs = useRef<{ [id: string]: Animated.ValueXY }>({});
-  const scaleRefs = useRef<{ [id: string]: Animated.Value }>({});
-  const panResponderRefs = useRef<{ [id: string]: any }>({});
+  const panRefs = useRef<{[id: string]: Animated.ValueXY}>({});
+  const scaleRefs = useRef<{[id: string]: Animated.Value}>({});
+  const panResponderRefs = useRef<{[id: string]: any}>({});
   const containerRef = useRef<View>(null);
-  
-  // Modal state
+  const isMounted = useRef(true);
+
   const [modalVisible, setModalVisible] = useState(false);
   const [newType, setNewType] = useState<TileType>('quote');
   const [newContent, setNewContent] = useState('');
-  
-  // State for edit modal
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editingTile, setEditingTile] = useState<{id: string, type: TileType, content: string} | null>(null);
+  const [editingTile, setEditingTile] = useState<{
+    id: string;
+    type: TileType;
+    content: string;
+  } | null>(null);
   const [editedContent, setEditedContent] = useState('');
   const [editedType, setEditedType] = useState<TileType>('quote');
-  
-  // Animation values for tiles
-  const tileAnimations = useRef<{
-    [key: string]: {
-      pan: Animated.ValueXY;
-      scale: Animated.Value;
-      rotate: Animated.Value;
-      panResponder: any;
-    };
-  }>({}).current;
-  
-  // Reference to track if component is mounted
-  const isMounted = useRef(true);
 
-  // Create PanResponder for a tile
   const createPanResponder = (tileId: string) => {
+    const onPanResponderRelease = (updates: {
+      id: string;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      rotation: number;
+    }) => {
+      panRefs.current[updates.id]?.flattenOffset();
+      scaleRefs.current[updates.id]?.setValue(1);
+      panRefs.current[updates.id]?.stopAnimation(
+        (finalValue: {x: number; y: number}) => {
+          const currentTile = tilesRef.current.find(t => t.id === updates.id); // ✅ Use ref
+
+          if (!currentTile) return;
+
+          const nx = Math.max(
+            0,
+            Math.min(finalValue.x, windowWidth - currentTile.width),
+          );
+          const ny = Math.max(
+            0,
+            Math.min(finalValue.y, windowHeight - 150 - currentTile.height),
+          );
+          panRefs.current[updates.id].setValue({x: nx, y: ny});
+
+          const updatedTiles = tilesRef.current.map(tileObj =>
+            tileObj.id === currentTile.id
+              ? {...tileObj, x: nx, y: ny}
+              : tileObj,
+          );
+          saveTiles(updatedTiles);
+        },
+      );
+    };
+
     return PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
-        scaleRefs.current[tileId].setValue(1.07);
-        panRefs.current[tileId].extractOffset();
+        scaleRefs.current[tileId]?.setValue(1.07);
+        panRefs.current[tileId]?.extractOffset();
       },
-      onPanResponderMove: Animated.event([
-        null,
-        { dx: panRefs.current[tileId].x, dy: panRefs.current[tileId].y }
-      ], { useNativeDriver: false }),
+      onPanResponderMove: Animated.event(
+        [null, {dx: panRefs.current[tileId].x, dy: panRefs.current[tileId].y}],
+        {useNativeDriver: false},
+      ),
       onPanResponderRelease: () => {
-        panRefs.current[tileId].flattenOffset();
-        scaleRefs.current[tileId].setValue(1);
-        panRefs.current[tileId].stopAnimation((finalValue: { x: number; y: number }) => {
-          // Find the tile to get its dimensions
-          const currentTile = tiles.find(t => t.id === tileId);
-          if (!currentTile) return;
-          
-          const nx = Math.max(0, Math.min(finalValue.x, windowWidth - currentTile.width));
-          const ny = Math.max(0, Math.min(finalValue.y, windowHeight - 150 - currentTile.height));
-          panRefs.current[tileId].setValue({ x: nx, y: ny });
-          
-          // Update the tile position in state and save to AsyncStorage
-          const updatedTiles = tiles.map(tileObj =>
-            tileObj.id === tileId ? { ...tileObj, x: nx, y: ny } : tileObj
-          );
-          
-          // Make sure to save the updated positions
-          saveTiles(updatedTiles);
+        onPanResponderRelease({
+          id: tileId,
+          x: (panRefs.current[tileId].x as any)._value,
+          y: (panRefs.current[tileId].y as any)._value,
+          width: 0,
+          height: 0,
+          rotation: 0,
         });
-      }
+      },
     });
   };
 
-  // Load tiles from storage or default
   const loadTiles = async () => {
     setIsLoading(true);
     try {
-      // Ensure we're using the correct storage key
-      const key = `detail_tiles_${tile.id}`;
-      console.log(`Loading tiles from AsyncStorage with key: ${key}`);
-      const stored = await AsyncStorage.getItem(key);
-      
-      let loadedTiles;
-      if (stored) {
-        console.log(`Found stored tiles: ${stored}`);
-        loadedTiles = JSON.parse(stored);
-      }
-      
-      // Initialize animated values AND panResponders with correct positions before setting tiles
-      loadedTiles.forEach(t => {
-        if (!panRefs.current[t.id]) {
-          panRefs.current[t.id] = new Animated.ValueXY({ x: t.x, y: t.y });
-        } else {
-          panRefs.current[t.id].setValue({ x: t.x, y: t.y });
-        }
-        
-        if (!scaleRefs.current[t.id]) {
-          scaleRefs.current[t.id] = new Animated.Value(1);
-        }
-        
-        // Create PanResponder for this tile if it doesn't exist
-        if (!panResponderRefs.current[t.id]) {
-          panResponderRefs.current[t.id] = createPanResponder(t.id);
-        }
+      const stored = await AsyncStorage.getItem(storageKey);
+      let loadedTiles: CorkTile[] = stored ? JSON.parse(stored) : [];
+
+      loadedTiles.forEach((t: CorkTile) => {
+        panRefs.current[t.id] = new Animated.ValueXY({x: t.x, y: t.y});
+        scaleRefs.current[t.id] = new Animated.Value(1);
+        panResponderRefs.current[t.id] = createPanResponder(t.id);
       });
-      
+
       setTiles(loadedTiles);
+      tilesRef.current = loadedTiles; // ✅ Sync ref
     } catch (error) {
       console.error('Error loading tiles:', error);
     }
     setIsLoading(false);
   };
 
-  // Save tiles to storage
   const saveTiles = async (updated: CorkTile[]) => {
     setTiles(updated);
+    tilesRef.current = updated; // ✅ Sync ref
     try {
-      // Ensure we're using the correct storage key
-      const key = `detail_tiles_${tile.id}`;
-      await AsyncStorage.setItem(key, JSON.stringify(updated));
-      console.log(`Saved ${updated.length} tiles to AsyncStorage with key: ${key}`);
+      await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
     } catch (error) {
-      console.error('Error saving tiles to AsyncStorage:', error);
+      console.error('Error saving tiles:', error);
     }
   };
 
-  // Initialize pan/scale and panResponder for each tile
-  useEffect(() => {
-    // Ensure animated values are initialized with correct positions
-    tiles.forEach(t => {
-      if (!panRefs.current[t.id]) {
-        panRefs.current[t.id] = new Animated.ValueXY({ x: t.x, y: t.y });
-      } else {
-        // Always update the value to match the tile position
-        panRefs.current[t.id].setValue({ x: t.x, y: t.y });
-      }
-      if (!scaleRefs.current[t.id]) {
-        scaleRefs.current[t.id] = new Animated.Value(1);
-      }
-      // PanResponder - use the createPanResponder function for consistency
-      if (!panResponderRefs.current[t.id]) {
-        panResponderRefs.current[t.id] = createPanResponder(t.id);
-      }
-    });
-    // Clean up removed tiles
-    Object.keys(panRefs.current).forEach(id => {
-      if (!tiles.find(t => t.id === id)) {
-        delete panRefs.current[id];
-        delete scaleRefs.current[id];
-        delete panResponderRefs.current[id];
-      }
-    });
-  }, [tiles]);
-
-  // Load tiles when the component mounts
   useEffect(() => {
     loadTiles();
-  }, []);  // Empty dependency array to only run once on mount
-  
-  // Reload tiles when the screen is focused or tile/storageKey changes
+  }, []);
+
   useFocusEffect(
     React.useCallback(() => {
-      console.log('Screen focused, reloading tiles...');
-      // Force a fresh load from AsyncStorage when the screen is focused
       loadTiles();
-      return () => {
-        // Cleanup
-      };
-    }, [tile.id])
+    }, [tile.id]),
   );
 
-  // Save tiles to storage whenever component unmounts
   useEffect(() => {
     return () => {
-      if (tiles.length > 0) {
-        AsyncStorage.setItem(storageKey, JSON.stringify(tiles));
+      if (tilesRef.current.length > 0) {
+        AsyncStorage.setItem(storageKey, JSON.stringify(tilesRef.current));
       }
-    };
-  }, [tiles, storageKey]);
-
-  // Set up component mount/unmount tracking
-  useEffect(() => {
-    isMounted.current = true;
-    return () => {
-      isMounted.current = false;
     };
   }, []);
 
-  // Handler to add a new tile
   const handleAddTile = () => {
     if (!newContent.trim()) return;
-    
-    const newTile = { 
-      id: Date.now().toString(), 
-      type: newType, 
-      content: newContent.trim(), 
-      x: 60, 
-      y: 60, 
-      width: 180, 
-      height: 100, 
+    const newTile: CorkTile = {
+      id: Date.now().toString(),
+      type: newType,
+      content: newContent.trim(),
+      x: 60,
+      y: 60,
+      width: 180,
+      height: 100,
       rotation: 0,
-      zIndex: tiles.length + 1 // New tiles appear on top
+      zIndex: tilesRef.current.length + 1,
     };
-    
-    const updatedTiles = [...tiles, newTile];
-    setTiles(updatedTiles);
-    
-    // Save to storage immediately
-    if (isMounted.current) {
-      AsyncStorage.setItem(storageKey, JSON.stringify(updatedTiles));
-    }
-    
+    const updated = [...tilesRef.current, newTile];
+    setTiles(updated);
+    tilesRef.current = updated;
+    AsyncStorage.setItem(storageKey, JSON.stringify(updated));
     setNewContent('');
     setNewType('quote');
     setModalVisible(false);
   };
 
-  // Handler to delete a tile
   const deleteTile = (id: string) => {
-    const updatedTiles = tiles.filter(tile => tile.id !== id);
-    setTiles(updatedTiles);
-    
-    // Save to storage immediately
-    if (isMounted.current) {
-      AsyncStorage.setItem(storageKey, JSON.stringify(updatedTiles));
-    }
-    
-    // Clean up animation references
-    if (tileAnimations[id]) {
-      delete tileAnimations[id];
-    }
+    const updated = tilesRef.current.filter(tile => tile.id !== id);
+    setTiles(updated);
+    tilesRef.current = updated;
+    AsyncStorage.setItem(storageKey, JSON.stringify(updated));
   };
 
-  // Handler to edit a tile
   const editTile = (id: string, type: TileType, content: string) => {
-    setEditingTile({ id, type, content });
+    setEditingTile({id, type, content});
     setEditedContent(content);
     setEditedType(type);
     setEditModalVisible(true);
   };
 
-  // Handler to save edited tile
   const saveEditedTile = () => {
     if (editingTile && editedContent.trim()) {
-      const updatedTiles = tiles.map(tile => 
-        tile.id === editingTile.id ? 
-        { ...tile, type: editedType, content: editedContent.trim() } : 
-        tile
+      const updated = tilesRef.current.map(tile =>
+        tile.id === editingTile.id
+          ? {...tile, type: editedType, content: editedContent.trim()}
+          : tile,
       );
-      
-      setTiles(updatedTiles);
-      
-      // Save to storage immediately
-      if (isMounted.current) {
-        AsyncStorage.setItem(storageKey, JSON.stringify(updatedTiles));
-      }
-      
+      setTiles(updated);
+      tilesRef.current = updated;
+      AsyncStorage.setItem(storageKey, JSON.stringify(updated));
       setEditModalVisible(false);
       setEditingTile(null);
       setEditedContent('');
@@ -325,60 +249,33 @@ function DetailsScreen({ navigation, route }: Props) {
     }
   };
 
-  // Handler for resizing a tile
   const handleResize = (id: string, newWidth: number, newHeight: number) => {
-    // Ensure minimum size
     const width = Math.max(100, newWidth);
     const height = Math.max(60, newHeight);
-    
-    // Find the tile we're updating
-    const tileToUpdate = tiles.find(t => t.id === id);
-    if (tileToUpdate) {
-      // Create a new tiles array with the updated tile
-      const updatedTiles = tiles.map(tile => 
-        tile.id === id ? { ...tile, width, height } : tile
-      );
-      
-      // Update state directly instead of using updateTile
-      setTiles(updatedTiles);
-      
-      // Save to storage
-      if (isMounted.current) {
-        AsyncStorage.setItem(storageKey, JSON.stringify(updatedTiles));
-      }
-    }
-  };
-
-  // Handler for rotating a tile
-  const handleRotate = (id: string, newRotation: number) => {
-    // Find the tile we're updating
-    const tileToUpdate = tiles.find(t => t.id === id);
-    if (tileToUpdate) {
-      // Create a new tiles array with the updated tile
-      const updatedTiles = tiles.map(tile => 
-        tile.id === id ? { ...tile, rotation: newRotation } : tile
-      );
-      
-      // Update state directly instead of using updateTile
-      setTiles(updatedTiles);
-      
-      // Update the animation value
-      if (tileAnimations[id]) {
-        tileAnimations[id].rotate.setValue(newRotation);
-      }
-      
-      // Save to storage
-      if (isMounted.current) {
-        AsyncStorage.setItem(storageKey, JSON.stringify(updatedTiles));
-      }
-    }
-  };
-
-  // Render tiles
-  const renderTiles = () => {
-    if (tiles.length === 0) return (
-      <View style={styles.noTilesContainer}><Text style={styles.noTilesText}>No tiles yet!</Text></View>
+    const updated = tilesRef.current.map(tile =>
+      tile.id === id ? {...tile, width, height} : tile,
     );
+    setTiles(updated);
+    tilesRef.current = updated;
+    AsyncStorage.setItem(storageKey, JSON.stringify(updated));
+  };
+
+  const handleRotate = (id: string, newRotation: number) => {
+    const updated = tilesRef.current.map(tile =>
+      tile.id === id ? {...tile, rotation: newRotation} : tile,
+    );
+    setTiles(updated);
+    tilesRef.current = updated;
+    AsyncStorage.setItem(storageKey, JSON.stringify(updated));
+  };
+
+  const renderTiles = () => {
+    if (tiles.length === 0)
+      return (
+        <View style={styles.noTilesContainer}>
+          <Text style={styles.noTilesText}>No tiles yet!</Text>
+        </View>
+      );
     return tiles.map(t => (
       <Animated.View
         key={t.id}
@@ -389,14 +286,13 @@ function DetailsScreen({ navigation, route }: Props) {
             height: t.height,
             zIndex: t.zIndex,
             transform: [
-              { translateX: panRefs.current[t.id] ? panRefs.current[t.id].x : 0 },
-              { translateY: panRefs.current[t.id] ? panRefs.current[t.id].y : 0 },
-              { scale: scaleRefs.current[t.id] || 1 }
-            ]
-          }
+              {translateX: panRefs.current[t.id]?.x || 0},
+              {translateY: panRefs.current[t.id]?.y || 0},
+              {scale: scaleRefs.current[t.id] || 1},
+            ],
+          },
         ]}
-        {...(panResponderRefs.current[t.id]?.panHandlers || {})}
-      >
+        {...(panResponderRefs.current[t.id]?.panHandlers || {})}>
         <View style={styles.tileContent}>
           <Text style={styles.tileText}>{t.content}</Text>
         </View>
@@ -406,170 +302,7 @@ function DetailsScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-      
-      <View style={[styles.header, { marginTop: insets.top / 4 }]}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{tile.title}</Text>
-      </View>
-      
-      <ScrollView 
-        horizontal
-        scrollEnabled={false}
-        contentContainerStyle={styles.scrollContainer}
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-      >
-        <View ref={containerRef} style={styles.workspaceContainer}>
-          {isLoading ? (
-            <Text style={styles.loadingText}>Loading...</Text>
-          ) : (
-            <>
-              {renderTiles()}
-            </>
-          )}
-        </View>
-      </ScrollView>
-      
-      <TouchableOpacity 
-        style={styles.addBtn}
-        onPress={() => setModalVisible(true)}
-      >
-        <View style={styles.addBtnInner}>
-          <Text style={styles.addBtnText}>+</Text>
-        </View>
-      </TouchableOpacity>
-      
-      {/* Modal for adding new tile */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add New Tile</Text>
-            
-            <View style={styles.typeRow}>
-              <Pressable 
-                style={[styles.typeBtn, newType === 'quote' && styles.typeBtnActive]}
-                onPress={() => setNewType('quote')}
-              >
-                <Text style={[styles.typeBtnText, newType === 'quote' && styles.typeBtnTextActive]}>Quote</Text>
-              </Pressable>
-              
-              <Pressable 
-                style={[styles.typeBtn, newType === 'link' && styles.typeBtnActive]}
-                onPress={() => setNewType('link')}
-              >
-                <Text style={[styles.typeBtnText, newType === 'link' && styles.typeBtnTextActive]}>Link</Text>
-              </Pressable>
-              
-              <Pressable 
-                style={[styles.typeBtn, newType === 'youtube' && styles.typeBtnActive]}
-                onPress={() => setNewType('youtube')}
-              >
-                <Text style={[styles.typeBtnText, newType === 'youtube' && styles.typeBtnTextActive]}>YouTube</Text>
-              </Pressable>
-            </View>
-            
-            <TextInput
-              style={styles.input}
-              placeholder={newType === 'quote' ? "Enter quote text..." : newType === 'link' ? "Enter URL..." : "Enter YouTube URL..."}
-              value={newContent}
-              onChangeText={setNewContent}
-              multiline={newType === 'quote'}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            
-            <View style={styles.modalButtonRow}>
-              <TouchableOpacity 
-                style={styles.modalCancelBtn}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={styles.modalCancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.modalAddBtn}
-                onPress={handleAddTile}
-              >
-                <Text style={styles.modalAddBtnText}>Add Tile</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-      
-      {/* Modal for editing a tile */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={editModalVisible}
-        onRequestClose={() => setEditModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Tile</Text>
-            
-            <View style={styles.typeRow}>
-              <Pressable 
-                style={[styles.typeBtn, editedType === 'quote' && styles.typeBtnActive]}
-                onPress={() => setEditedType('quote')}
-              >
-                <Text style={[styles.typeBtnText, editedType === 'quote' && styles.typeBtnTextActive]}>Quote</Text>
-              </Pressable>
-              
-              <Pressable 
-                style={[styles.typeBtn, editedType === 'link' && styles.typeBtnActive]}
-                onPress={() => setEditedType('link')}
-              >
-                <Text style={[styles.typeBtnText, editedType === 'link' && styles.typeBtnTextActive]}>Link</Text>
-              </Pressable>
-              
-              <Pressable 
-                style={[styles.typeBtn, editedType === 'youtube' && styles.typeBtnActive]}
-                onPress={() => setEditedType('youtube')}
-              >
-                <Text style={[styles.typeBtnText, editedType === 'youtube' && styles.typeBtnTextActive]}>YouTube</Text>
-              </Pressable>
-            </View>
-            
-            <TextInput
-              style={styles.input}
-              placeholder={editedType === 'quote' ? "Enter quote text..." : editedType === 'link' ? "Enter URL..." : "Enter YouTube URL..."}
-              value={editedContent}
-              onChangeText={setEditedContent}
-              multiline={editedType === 'quote'}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            
-            <View style={styles.modalButtonRow}>
-              <TouchableOpacity 
-                style={styles.modalCancelBtn}
-                onPress={() => setEditModalVisible(false)}
-              >
-                <Text style={styles.modalCancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.modalAddBtn}
-                onPress={saveEditedTile}
-              >
-                <Text style={styles.modalAddBtnText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {renderTiles()}
     </SafeAreaView>
   );
 }
@@ -621,7 +354,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DDD',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
@@ -744,7 +477,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.2,
     shadowRadius: 3,
     elevation: 5,
@@ -766,7 +499,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 8,
@@ -840,7 +573,7 @@ const styles = StyleSheet.create({
   modalAddBtnText: {
     fontFamily: FONTS.medium,
     color: '#FFFFFF',
-  }
+  },
 });
 
 export default DetailsScreen;
