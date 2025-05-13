@@ -43,16 +43,11 @@ const COLORS = {
 
 const defaultTiles: Tile[] = [
   { id: '1', icon: 'walk-outline', title: 'Take a walk', subtitle: 'Clear your mind', color: COLORS.primary },
-  { id: '2', icon: 'water-outline', title: 'Drink water', subtitle: 'Stay hydrated', color: COLORS.primary },
-  { id: '3', icon: 'musical-notes-outline', title: 'Listen to music', subtitle: 'Find calm', color: COLORS.primary },
-  { id: '4', icon: 'leaf-outline', title: 'Step outside', subtitle: 'Feel the air', color: COLORS.primary },
-  { id: '5', icon: 'pencil-outline', title: 'Journal', subtitle: 'Write it out', color: COLORS.primary },
-  { id: '6', icon: 'medkit-outline', title: 'Breathe deeply', subtitle: 'Reset your body', color: COLORS.primary },
 ];
 
 export default function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const [tiles, setTiles] = useState<Tile[]>(defaultTiles);
+  const [tiles, setTiles] = useState<Tile[]>([]);
   const [formVisible, setFormVisible] = useState(false);
   const [newTile, setNewTile] = useState<Partial<Tile>>({});
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
@@ -137,7 +132,6 @@ export default function HomeScreen({ navigation }: Props) {
     (async () => {
       const stored = await AsyncStorage.getItem('tiles');
       if (stored) setTiles(JSON.parse(stored));
-      else setTiles(defaultTiles);
     })();
     
     // Run animations on initial load
@@ -147,9 +141,6 @@ export default function HomeScreen({ navigation }: Props) {
   // Save tiles to storage whenever they change
   useEffect(() => {
     AsyncStorage.setItem('tiles', JSON.stringify(tiles));
-    if (tiles.length === 0) {
-      setTiles(defaultTiles)
-    }
     // Update card animations array when tiles change
     const newAnimations = tiles.map((_, i) => {
       if (i >= cardAnimations.length) {
@@ -342,7 +333,7 @@ export default function HomeScreen({ navigation }: Props) {
           style={styles.animateButton}
           onPress={async() => {
           await AsyncStorage.clear()
-          setTiles(defaultTiles);
+          setTiles([]);
           }}
           disabled={isAnimating}
         >
