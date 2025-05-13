@@ -196,27 +196,35 @@ function DetailsScreen({navigation, route}: Props) {
     };
   }, []);
 
-  const handleAddTile = () => {
-    if (!newContent.trim()) return;
-    const newTile: CorkTile = {
-      id: Date.now().toString(),
-      type: newType,
-      content: newContent.trim(),
-      x: 60,
-      y: 60,
-      width: 180,
-      height: 100,
-      rotation: 0,
-      zIndex: tilesRef.current.length + 1,
-    };
-    const updated = [...tilesRef.current, newTile];
-    setTiles(updated);
-    tilesRef.current = updated;
-    AsyncStorage.setItem(storageKey, JSON.stringify(updated));
-    setNewContent('');
-    setNewType('quote');
-    setModalVisible(false);
+const handleAddTile = () => {
+  if (!newContent.trim()) return;
+
+  const newTile: CorkTile = {
+    id: Date.now().toString(),
+    type: newType,
+    content: newContent.trim(),
+    x: 60,
+    y: 60,
+    width: 180,
+    height: 100,
+    rotation: 0,
+    zIndex: tilesRef.current.length + 1,
   };
+
+  // 🧠 Create pan/scale/responders immediately so it's interactive
+  panRefs.current[newTile.id] = new Animated.ValueXY({ x: newTile.x, y: newTile.y });
+  scaleRefs.current[newTile.id] = new Animated.Value(1);
+  panResponderRefs.current[newTile.id] = createPanResponder(newTile.id);
+
+  const updated = [...tilesRef.current, newTile];
+  setTiles(updated);
+  tilesRef.current = updated;
+
+  AsyncStorage.setItem(storageKey, JSON.stringify(updated));
+  setNewContent('');
+  setNewType('quote');
+  setModalVisible(false);
+};
 
   const deleteTile = (id: string) => {
     const updated = tilesRef.current.filter(tile => tile.id !== id);
@@ -294,7 +302,49 @@ function DetailsScreen({navigation, route}: Props) {
         ]}
         {...(panResponderRefs.current[t.id]?.panHandlers || {})}>
         <View style={styles.tileContent}>
-          <Text style={styles.tileText}>{t.content}</Text>
+          {t.type === 'quote' && (
+            <Text style={styles.tileText}>{t.content}</Text>
+          )}
+          
+          {t.type === 'link' && (
+            <TouchableOpacity 
+              onPress={() => Linking.openURL(t.content)}
+              style={styles.linkContainer}
+            >
+              <Text style={styles.linkText}>{t.content}</Text>
+            </TouchableOpacity>
+          )}
+          
+          {t.type === 'youtube' && (
+            <TouchableOpacity 
+              onPress={() => {
+                const videoId = getYouTubeVideoId(t.content);
+                if (videoId) {
+                  Linking.openURL(`https://www.youtube.com/watch?v=${videoId}`);
+                }
+              }}
+              style={styles.youtubeContainer}
+            >
+              <Text style={styles.linkText}>{t.content}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        
+        {/* Tile controls */}
+        <View style={styles.tileControls}>
+          <TouchableOpacity 
+            style={styles.tileControlButton}
+            onPress={() => editTile(t.id, t.type, t.content)}
+          >
+            <Text style={styles.tileControlButtonText}>Edit</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.tileControlButton, styles.deleteButton]}
+            onPress={() => deleteTile(t.id)}
+          >
+            <Text style={styles.tileControlButtonText}>Delete</Text>
+          </TouchableOpacity>
         </View>
       </Animated.View>
     ));
@@ -302,7 +352,169 @@ function DetailsScreen({navigation, route}: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {renderTiles()}
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      
+      <View style={[styles.header, {marginTop: insets.top / 4}]}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{tile.title}</Text>
+      </View>
+      
+      <ScrollView 
+        horizontal
+        scrollEnabled={false}
+        contentContainerStyle={styles.scrollContainer}
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
+      >
+        <View ref={containerRef} style={styles.workspaceContainer}>
+          {isLoading ? (
+            <Text style={styles.loadingText}>Loading...</Text>
+          ) : (
+            <>{renderTiles()}</>
+          )}
+        </View>
+      </ScrollView>
+      
+      {/* Floating Action Button to add new tiles */}
+      <TouchableOpacity 
+        style={styles.addBtn}
+        onPress={() => setModalVisible(true)}
+      >
+        <View style={styles.addBtnInner}>
+          <Text style={styles.addBtnText}>+</Text>
+        </View>
+      </TouchableOpacity>
+      
+      {/* Modal for adding new tile */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add New Tile</Text>
+            
+            <View style={styles.typeRow}>
+              <Pressable 
+                style={[styles.typeBtn, newType === 'quote' && styles.typeBtnActive]}
+                onPress={() => setNewType('quote')}
+              >
+                <Text style={[styles.typeBtnText, newType === 'quote' && styles.typeBtnTextActive]}>Quote</Text>
+              </Pressable>
+              
+              <Pressable 
+                style={[styles.typeBtn, newType === 'link' && styles.typeBtnActive]}
+                onPress={() => setNewType('link')}
+              >
+                <Text style={[styles.typeBtnText, newType === 'link' && styles.typeBtnTextActive]}>Link</Text>
+              </Pressable>
+              
+              <Pressable 
+                style={[styles.typeBtn, newType === 'youtube' && styles.typeBtnActive]}
+                onPress={() => setNewType('youtube')}
+              >
+                <Text style={[styles.typeBtnText, newType === 'youtube' && styles.typeBtnTextActive]}>YouTube</Text>
+              </Pressable>
+            </View>
+            
+            <TextInput
+              style={styles.input}
+              placeholder={newType === 'quote' ? "Enter quote text..." : newType === 'link' ? "Enter URL..." : "Enter YouTube URL..."}
+              value={newContent}
+              onChangeText={setNewContent}
+              multiline={newType === 'quote'}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            
+            <View style={styles.modalButtonRow}>
+              <TouchableOpacity 
+                style={styles.modalCancelBtn}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.modalAddBtn}
+                onPress={handleAddTile}
+              >
+                <Text style={styles.modalAddBtnText}>Add Tile</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Modal for editing a tile */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={editModalVisible}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Tile</Text>
+            
+            <View style={styles.typeRow}>
+              <Pressable 
+                style={[styles.typeBtn, editedType === 'quote' && styles.typeBtnActive]}
+                onPress={() => setEditedType('quote')}
+              >
+                <Text style={[styles.typeBtnText, editedType === 'quote' && styles.typeBtnTextActive]}>Quote</Text>
+              </Pressable>
+              
+              <Pressable 
+                style={[styles.typeBtn, editedType === 'link' && styles.typeBtnActive]}
+                onPress={() => setEditedType('link')}
+              >
+                <Text style={[styles.typeBtnText, editedType === 'link' && styles.typeBtnTextActive]}>Link</Text>
+              </Pressable>
+              
+              <Pressable 
+                style={[styles.typeBtn, editedType === 'youtube' && styles.typeBtnActive]}
+                onPress={() => setEditedType('youtube')}
+              >
+                <Text style={[styles.typeBtnText, editedType === 'youtube' && styles.typeBtnTextActive]}>YouTube</Text>
+              </Pressable>
+            </View>
+            
+            <TextInput
+              style={styles.input}
+              placeholder={editedType === 'quote' ? "Enter quote text..." : editedType === 'link' ? "Enter URL..." : "Enter YouTube URL..."}
+              value={editedContent}
+              onChangeText={setEditedContent}
+              multiline={editedType === 'quote'}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            
+            <View style={styles.modalButtonRow}>
+              <TouchableOpacity 
+                style={styles.modalCancelBtn}
+                onPress={() => setEditModalVisible(false)}
+              >
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.modalAddBtn}
+                onPress={saveEditedTile}
+              >
+                <Text style={styles.modalAddBtnText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
