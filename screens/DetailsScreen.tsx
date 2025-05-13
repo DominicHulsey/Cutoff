@@ -51,21 +51,6 @@ type CorkTile = {
   zIndex: number; // Added for stacking order
 };
 
-// Generate default tiles based on the home tile that was tapped
-const generateDefaultTiles = (homeTile: any): CorkTile[] => [
-  { 
-    id: 'default-quote-tile',
-    type: 'quote', 
-    content: homeTile.title || 'Your Inspiring Quote', 
-    x: windowWidth * 0.1, // Position towards the left of the initial view
-    y: windowHeight * 0.2, 
-    width: windowWidth * 0.6, // Make it a bit larger by default
-    height: 150, 
-    rotation: 0,
-    zIndex: 1
-  },
-];
-
 // Helper function to extract YouTube video ID
 const getYouTubeVideoId = (url: string): string | null => {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -113,18 +98,78 @@ function DetailsScreen({ navigation, route }: Props) {
   // Reference to track if component is mounted
   const isMounted = useRef(true);
 
+  // Create PanResponder for a tile
+  const createPanResponder = (tileId: string) => {
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        scaleRefs.current[tileId].setValue(1.07);
+        panRefs.current[tileId].extractOffset();
+      },
+      onPanResponderMove: Animated.event([
+        null,
+        { dx: panRefs.current[tileId].x, dy: panRefs.current[tileId].y }
+      ], { useNativeDriver: false }),
+      onPanResponderRelease: () => {
+        panRefs.current[tileId].flattenOffset();
+        scaleRefs.current[tileId].setValue(1);
+        panRefs.current[tileId].stopAnimation((finalValue: { x: number; y: number }) => {
+          // Find the tile to get its dimensions
+          const currentTile = tiles.find(t => t.id === tileId);
+          if (!currentTile) return;
+          
+          const nx = Math.max(0, Math.min(finalValue.x, windowWidth - currentTile.width));
+          const ny = Math.max(0, Math.min(finalValue.y, windowHeight - 150 - currentTile.height));
+          panRefs.current[tileId].setValue({ x: nx, y: ny });
+          
+          // Update the tile position in state and save to AsyncStorage
+          const updatedTiles = tiles.map(tileObj =>
+            tileObj.id === tileId ? { ...tileObj, x: nx, y: ny } : tileObj
+          );
+          
+          // Make sure to save the updated positions
+          saveTiles(updatedTiles);
+        });
+      }
+    });
+  };
+
   // Load tiles from storage or default
   const loadTiles = async () => {
     setIsLoading(true);
     try {
-      const stored = await AsyncStorage.getItem(storageKey);
+      // Ensure we're using the correct storage key
+      const key = `detail_tiles_${tile.id}`;
+      console.log(`Loading tiles from AsyncStorage with key: ${key}`);
+      const stored = await AsyncStorage.getItem(key);
+      
+      let loadedTiles;
       if (stored) {
-        setTiles(JSON.parse(stored));
-      } else {
-        setTiles(generateDefaultTiles(tile));
+        console.log(`Found stored tiles: ${stored}`);
+        loadedTiles = JSON.parse(stored);
       }
-    } catch {
-      setTiles(generateDefaultTiles(tile));
+      
+      // Initialize animated values AND panResponders with correct positions before setting tiles
+      loadedTiles.forEach(t => {
+        if (!panRefs.current[t.id]) {
+          panRefs.current[t.id] = new Animated.ValueXY({ x: t.x, y: t.y });
+        } else {
+          panRefs.current[t.id].setValue({ x: t.x, y: t.y });
+        }
+        
+        if (!scaleRefs.current[t.id]) {
+          scaleRefs.current[t.id] = new Animated.Value(1);
+        }
+        
+        // Create PanResponder for this tile if it doesn't exist
+        if (!panResponderRefs.current[t.id]) {
+          panResponderRefs.current[t.id] = createPanResponder(t.id);
+        }
+      });
+      
+      setTiles(loadedTiles);
+    } catch (error) {
+      console.error('Error loading tiles:', error);
     }
     setIsLoading(false);
   };
@@ -132,47 +177,32 @@ function DetailsScreen({ navigation, route }: Props) {
   // Save tiles to storage
   const saveTiles = async (updated: CorkTile[]) => {
     setTiles(updated);
-    await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
+    try {
+      // Ensure we're using the correct storage key
+      const key = `detail_tiles_${tile.id}`;
+      await AsyncStorage.setItem(key, JSON.stringify(updated));
+      console.log(`Saved ${updated.length} tiles to AsyncStorage with key: ${key}`);
+    } catch (error) {
+      console.error('Error saving tiles to AsyncStorage:', error);
+    }
   };
 
   // Initialize pan/scale and panResponder for each tile
   useEffect(() => {
+    // Ensure animated values are initialized with correct positions
     tiles.forEach(t => {
       if (!panRefs.current[t.id]) {
         panRefs.current[t.id] = new Animated.ValueXY({ x: t.x, y: t.y });
       } else {
+        // Always update the value to match the tile position
         panRefs.current[t.id].setValue({ x: t.x, y: t.y });
       }
       if (!scaleRefs.current[t.id]) {
         scaleRefs.current[t.id] = new Animated.Value(1);
       }
-      // PanResponder
+      // PanResponder - use the createPanResponder function for consistency
       if (!panResponderRefs.current[t.id]) {
-        panResponderRefs.current[t.id] = PanResponder.create({
-          onStartShouldSetPanResponder: () => true,
-          onPanResponderGrant: () => {
-            scaleRefs.current[t.id].setValue(1.07);
-            panRefs.current[t.id].extractOffset();
-          },
-          onPanResponderMove: Animated.event([
-            null,
-            { dx: panRefs.current[t.id].x, dy: panRefs.current[t.id].y }
-          ], { useNativeDriver: false }),
-          onPanResponderRelease: () => {
-            panRefs.current[t.id].flattenOffset();
-            scaleRefs.current[t.id].setValue(1);
-            panRefs.current[t.id].stopAnimation((finalValue: { x: number; y: number }) => {
-              const nx = Math.max(0, Math.min(finalValue.x, windowWidth - t.width));
-              const ny = Math.max(0, Math.min(finalValue.y, windowHeight - 150 - t.height));
-              panRefs.current[t.id].setValue({ x: nx, y: ny });
-              saveTiles(
-                tiles.map(tileObj =>
-                  tileObj.id === t.id ? { ...tileObj, x: nx, y: ny } : tileObj
-                )
-              );
-            });
-          }
-        });
+        panResponderRefs.current[t.id] = createPanResponder(t.id);
       }
     });
     // Clean up removed tiles
@@ -193,6 +223,8 @@ function DetailsScreen({ navigation, route }: Props) {
   // Reload tiles when the screen is focused or tile/storageKey changes
   useFocusEffect(
     React.useCallback(() => {
+      console.log('Screen focused, reloading tiles...');
+      // Force a fresh load from AsyncStorage when the screen is focused
       loadTiles();
       return () => {
         // Cleanup
