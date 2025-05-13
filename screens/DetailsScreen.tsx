@@ -13,7 +13,8 @@ import {
   Animated,
   PanResponder,
   Linking,
-  Pressable
+  Pressable,
+  Alert
 } from 'react-native';
 import { FONTS } from '../src/constants/fonts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -77,14 +78,21 @@ const getYouTubeThumbnail = (videoId: string): string => {
   return `https://img.youtube.com/vi/${videoId}/0.jpg`;
 };
 
-export default function DetailsScreen({ navigation, route }: Props) {
+function DetailsScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const { tile } = route.params;
   const [tiles, setTiles] = useState<CorkTile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const storageKey = `detail_tiles_${tile.id}`;
+  const panRefs = useRef<{ [id: string]: Animated.ValueXY }>({});
+  const scaleRefs = useRef<{ [id: string]: Animated.Value }>({});
+  const panResponderRefs = useRef<{ [id: string]: any }>({});
+  const containerRef = useRef<View>(null);
+  
+  // Modal state
   const [modalVisible, setModalVisible] = useState(false);
   const [newType, setNewType] = useState<TileType>('quote');
   const [newContent, setNewContent] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
   
   // State for edit modal
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -92,9 +100,6 @@ export default function DetailsScreen({ navigation, route }: Props) {
   const [editedContent, setEditedContent] = useState('');
   const [editedType, setEditedType] = useState<TileType>('quote');
   
-  // Create a unique storage key for each home tile's detail page
-  const storageKey = `detail_tiles_${tile.id}`;
-
   // Animation values for tiles
   const tileAnimations = useRef<{
     [key: string]: {
@@ -104,132 +109,157 @@ export default function DetailsScreen({ navigation, route }: Props) {
       panResponder: any;
     };
   }>({}).current;
+  
+  // Reference to track if component is mounted
+  const isMounted = useRef(true);
 
+  // Load tiles from storage or default
+  const loadTiles = async () => {
+    setIsLoading(true);
+    try {
+      const stored = await AsyncStorage.getItem(storageKey);
+      if (stored) {
+        setTiles(JSON.parse(stored));
+      } else {
+        setTiles(generateDefaultTiles(tile));
+      }
+    } catch {
+      setTiles(generateDefaultTiles(tile));
+    }
+    setIsLoading(false);
+  };
+
+  // Save tiles to storage
+  const saveTiles = async (updated: CorkTile[]) => {
+    setTiles(updated);
+    await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
+  };
+
+  // Initialize pan/scale and panResponder for each tile
+  useEffect(() => {
+    tiles.forEach(t => {
+      if (!panRefs.current[t.id]) {
+        panRefs.current[t.id] = new Animated.ValueXY({ x: t.x, y: t.y });
+      } else {
+        panRefs.current[t.id].setValue({ x: t.x, y: t.y });
+      }
+      if (!scaleRefs.current[t.id]) {
+        scaleRefs.current[t.id] = new Animated.Value(1);
+      }
+      // PanResponder
+      if (!panResponderRefs.current[t.id]) {
+        panResponderRefs.current[t.id] = PanResponder.create({
+          onStartShouldSetPanResponder: () => true,
+          onPanResponderGrant: () => {
+            scaleRefs.current[t.id].setValue(1.07);
+            panRefs.current[t.id].extractOffset();
+          },
+          onPanResponderMove: Animated.event([
+            null,
+            { dx: panRefs.current[t.id].x, dy: panRefs.current[t.id].y }
+          ], { useNativeDriver: false }),
+          onPanResponderRelease: () => {
+            panRefs.current[t.id].flattenOffset();
+            scaleRefs.current[t.id].setValue(1);
+            panRefs.current[t.id].stopAnimation((finalValue: { x: number; y: number }) => {
+              const nx = Math.max(0, Math.min(finalValue.x, windowWidth - t.width));
+              const ny = Math.max(0, Math.min(finalValue.y, windowHeight - 150 - t.height));
+              panRefs.current[t.id].setValue({ x: nx, y: ny });
+              saveTiles(
+                tiles.map(tileObj =>
+                  tileObj.id === t.id ? { ...tileObj, x: nx, y: ny } : tileObj
+                )
+              );
+            });
+          }
+        });
+      }
+    });
+    // Clean up removed tiles
+    Object.keys(panRefs.current).forEach(id => {
+      if (!tiles.find(t => t.id === id)) {
+        delete panRefs.current[id];
+        delete scaleRefs.current[id];
+        delete panResponderRefs.current[id];
+      }
+    });
+  }, [tiles]);
+
+  // Load tiles when the component mounts
+  useEffect(() => {
+    loadTiles();
+  }, []);  // Empty dependency array to only run once on mount
+  
+  // Reload tiles when the screen is focused or tile/storageKey changes
+  useFocusEffect(
+    React.useCallback(() => {
+      loadTiles();
+      return () => {
+        // Cleanup
+      };
+    }, [tile.id])
+  );
+
+  // Save tiles to storage whenever component unmounts
+  useEffect(() => {
+    return () => {
+      if (tiles.length > 0) {
+        AsyncStorage.setItem(storageKey, JSON.stringify(tiles));
+      }
+    };
+  }, [tiles, storageKey]);
+
+  // Set up component mount/unmount tracking
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Handler to add a new tile
   const handleAddTile = () => {
     if (!newContent.trim()) return;
-    setTiles(prev => [
-      ...prev,
-      { 
-        id: Date.now().toString(), 
-        type: newType, 
-        content: newContent.trim(), 
-        x: 60, 
-        y: 60, 
-        width: 180, 
-        height: 100, 
-        rotation: 0,
-        zIndex: prev.length + 1 // New tiles appear on top
-      },
-    ]);
+    
+    const newTile = { 
+      id: Date.now().toString(), 
+      type: newType, 
+      content: newContent.trim(), 
+      x: 60, 
+      y: 60, 
+      width: 180, 
+      height: 100, 
+      rotation: 0,
+      zIndex: tiles.length + 1 // New tiles appear on top
+    };
+    
+    const updatedTiles = [...tiles, newTile];
+    setTiles(updatedTiles);
+    
+    // Save to storage immediately
+    if (isMounted.current) {
+      AsyncStorage.setItem(storageKey, JSON.stringify(updatedTiles));
+    }
+    
     setNewContent('');
     setNewType('quote');
     setModalVisible(false);
   };
 
-  // Load tiles from storage when the screen is focused
-  useFocusEffect(
-    React.useCallback(() => {
-      const loadTiles = async () => {
-        try {
-          setIsLoading(true);
-          const storedTiles = await AsyncStorage.getItem(storageKey);
-          if (storedTiles) {
-            setTiles(JSON.parse(storedTiles));
-          } else {
-            // If no stored tiles, generate default ones based on the home tile
-            setTiles(generateDefaultTiles(tile));
-          }
-        } catch (error) {
-          console.error('Error loading tiles:', error);
-          // Fallback to default tiles if there's an error
-          setTiles(generateDefaultTiles(tile));
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      
-      loadTiles();
-    }, [tile, storageKey])
-  );
-
-  // Save tiles to storage whenever they change
-  useEffect(() => {
-    if (!isLoading) {
-      AsyncStorage.setItem(storageKey, JSON.stringify(tiles));
-    }
-  }, [tiles, storageKey, isLoading]);
-
-  // Handler to update tile position, size, or rotation
-  const updateTile = (id: string, updates: Partial<CorkTile>) => {
-    setTiles(prev => prev.map(tile => tile.id === id ? { ...tile, ...updates } : tile));
-  };
-
-  // Initialize or update tile animations when tiles change
-  useEffect(() => {
-    // Create animations for new tiles
-    tiles.forEach(tile => {
-      if (!tileAnimations[tile.id]) {
-        const pan = new Animated.ValueXY({ x: 0, y: 0 });
-        const scale = new Animated.Value(1);
-        const rotate = new Animated.Value(tile.rotation);
-
-        // Create pan responder for this tile
-        const panResponder = PanResponder.create({
-          onStartShouldSetPanResponder: () => true,
-          onPanResponderGrant: () => {
-            // Bring tile to front when touched
-            updateTile(tile.id, { zIndex: Math.max(...tiles.map(t => t.zIndex)) + 1 });
-            // Start scale animation
-            Animated.spring(scale, {
-              toValue: 1.05,
-              friction: 5,
-              useNativeDriver: true
-            }).start();
-          },
-          onPanResponderMove: Animated.event(
-            [null, { dx: pan.x, dy: pan.y }],
-            { useNativeDriver: false }
-          ),
-          onPanResponderRelease: (_, gestureState) => {
-            // Update tile position in state
-            updateTile(tile.id, { 
-              x: tile.x + gestureState.dx, 
-              y: tile.y + gestureState.dy 
-            });
-            // Reset animated values
-            pan.setValue({ x: 0, y: 0 });
-            // End scale animation
-            Animated.spring(scale, {
-              toValue: 1,
-              friction: 5,
-              useNativeDriver: true
-            }).start();
-          }
-        });
-
-        tileAnimations[tile.id] = { pan, scale, rotate, panResponder };
-      }
-    });
-  }, [tiles]);
-
-  // Handler to duplicate a tile
-  const duplicateTile = (id: string) => {
-    const tileToDuplicate = tiles.find(t => t.id === id);
-    if (tileToDuplicate) {
-      const newTile = {
-        ...tileToDuplicate,
-        id: Date.now().toString(),
-        x: tileToDuplicate.x + 20,
-        y: tileToDuplicate.y + 20,
-        zIndex: Math.max(...tiles.map(t => t.zIndex)) + 1
-      };
-      setTiles(prev => [...prev, newTile]);
-    }
-  };
-
   // Handler to delete a tile
   const deleteTile = (id: string) => {
-    setTiles(prev => prev.filter(tile => tile.id !== id));
+    const updatedTiles = tiles.filter(tile => tile.id !== id);
+    setTiles(updatedTiles);
+    
+    // Save to storage immediately
+    if (isMounted.current) {
+      AsyncStorage.setItem(storageKey, JSON.stringify(updatedTiles));
+    }
+    
+    // Clean up animation references
+    if (tileAnimations[id]) {
+      delete tileAnimations[id];
+    }
   };
 
   // Handler to edit a tile
@@ -243,40 +273,110 @@ export default function DetailsScreen({ navigation, route }: Props) {
   // Handler to save edited tile
   const saveEditedTile = () => {
     if (editingTile && editedContent.trim()) {
-      setTiles(prev => 
-        prev.map(tile => 
-          tile.id === editingTile.id 
-            ? { ...tile, content: editedContent.trim(), type: editedType } 
-            : tile
-        )
+      const updatedTiles = tiles.map(tile => 
+        tile.id === editingTile.id ? 
+        { ...tile, type: editedType, content: editedContent.trim() } : 
+        tile
       );
+      
+      setTiles(updatedTiles);
+      
+      // Save to storage immediately
+      if (isMounted.current) {
+        AsyncStorage.setItem(storageKey, JSON.stringify(updatedTiles));
+      }
+      
       setEditModalVisible(false);
       setEditingTile(null);
       setEditedContent('');
+      setEditedType('quote');
     }
   };
 
   // Handler for resizing a tile
   const handleResize = (id: string, newWidth: number, newHeight: number) => {
-    updateTile(id, { 
-      width: Math.max(100, newWidth), // Minimum width
-      height: Math.max(60, newHeight) // Minimum height
-    });
+    // Ensure minimum size
+    const width = Math.max(100, newWidth);
+    const height = Math.max(60, newHeight);
+    
+    // Find the tile we're updating
+    const tileToUpdate = tiles.find(t => t.id === id);
+    if (tileToUpdate) {
+      // Create a new tiles array with the updated tile
+      const updatedTiles = tiles.map(tile => 
+        tile.id === id ? { ...tile, width, height } : tile
+      );
+      
+      // Update state directly instead of using updateTile
+      setTiles(updatedTiles);
+      
+      // Save to storage
+      if (isMounted.current) {
+        AsyncStorage.setItem(storageKey, JSON.stringify(updatedTiles));
+      }
+    }
   };
 
   // Handler for rotating a tile
   const handleRotate = (id: string, newRotation: number) => {
-    updateTile(id, { rotation: newRotation });
-    if (tileAnimations[id]) {
-      tileAnimations[id].rotate.setValue(newRotation);
+    // Find the tile we're updating
+    const tileToUpdate = tiles.find(t => t.id === id);
+    if (tileToUpdate) {
+      // Create a new tiles array with the updated tile
+      const updatedTiles = tiles.map(tile => 
+        tile.id === id ? { ...tile, rotation: newRotation } : tile
+      );
+      
+      // Update state directly instead of using updateTile
+      setTiles(updatedTiles);
+      
+      // Update the animation value
+      if (tileAnimations[id]) {
+        tileAnimations[id].rotate.setValue(newRotation);
+      }
+      
+      // Save to storage
+      if (isMounted.current) {
+        AsyncStorage.setItem(storageKey, JSON.stringify(updatedTiles));
+      }
     }
+  };
+
+  // Render tiles
+  const renderTiles = () => {
+    if (tiles.length === 0) return (
+      <View style={styles.noTilesContainer}><Text style={styles.noTilesText}>No tiles yet!</Text></View>
+    );
+    return tiles.map(t => (
+      <Animated.View
+        key={t.id}
+        style={[
+          styles.tile,
+          {
+            width: t.width,
+            height: t.height,
+            zIndex: t.zIndex,
+            transform: [
+              { translateX: panRefs.current[t.id] ? panRefs.current[t.id].x : 0 },
+              { translateY: panRefs.current[t.id] ? panRefs.current[t.id].y : 0 },
+              { scale: scaleRefs.current[t.id] || 1 }
+            ]
+          }
+        ]}
+        {...(panResponderRefs.current[t.id]?.panHandlers || {})}
+      >
+        <View style={styles.tileContent}>
+          <Text style={styles.tileText}>{t.content}</Text>
+        </View>
+      </Animated.View>
+    ));
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       
-      <View style={[styles.header, { marginTop: insets.top / 2 }]}>
+      <View style={[styles.header, { marginTop: insets.top / 4 }]}>
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -288,142 +388,17 @@ export default function DetailsScreen({ navigation, route }: Props) {
       
       <ScrollView 
         horizontal
+        scrollEnabled={false}
         contentContainerStyle={styles.scrollContainer}
         showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.workspaceContainer}>
+        <View ref={containerRef} style={styles.workspaceContainer}>
           {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>Loading...</Text>
-            </View>
+            <Text style={styles.loadingText}>Loading...</Text>
           ) : (
             <>
-              {tiles.map((item) => {
-                const animation = tileAnimations[item.id];
-                if (!animation) return null;
-                
-                return (
-                  <Animated.View
-                    key={item.id}
-                    style={[
-                      styles.draggableTile,
-                      {
-                        left: item.x,
-                        top: item.y,
-                        width: item.width,
-                        height: item.height,
-                        zIndex: item.zIndex,
-                        transform: [
-                          { translateX: animation.pan.x },
-                          { translateY: animation.pan.y },
-                          { scale: animation.scale },
-                          { rotate: animation.rotate.interpolate({
-                            inputRange: [0, 360],
-                            outputRange: ['0deg', '360deg']
-                          })}
-                        ]
-                      }
-                    ]}
-                    {...animation.panResponder.panHandlers}
-                  >
-                    <View style={styles.tileContent}>
-                      {item.type === 'quote' && (
-                        <Text style={styles.tileText}>{item.content}</Text>
-                      )}
-                      
-                      {item.type === 'link' && (
-                        <TouchableOpacity 
-                          onPress={() => Linking.openURL(item.content)}
-                          style={styles.linkContainer}
-                        >
-                          <Text style={styles.linkText}>{item.content}</Text>
-                        </TouchableOpacity>
-                      )}
-                      
-                      {item.type === 'youtube' && (
-                        <TouchableOpacity 
-                          onPress={() => {
-                            const videoId = getYouTubeVideoId(item.content);
-                            if (videoId) {
-                              Linking.openURL(`https://www.youtube.com/watch?v=${videoId}`);
-                            }
-                          }}
-                          style={styles.youtubeContainer}
-                        >
-                          <Text style={styles.linkText}>{item.content}</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                    
-                    {/* Tile controls */}
-                    <View style={styles.tileControls}>
-                      <TouchableOpacity 
-                        style={styles.tileControlButton}
-                        onPress={() => editTile(item.id, item.type, item.content)}
-                      >
-                        <Text style={styles.tileControlButtonText}>Edit</Text>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity 
-                        style={styles.tileControlButton}
-                        onPress={() => duplicateTile(item.id)}
-                      >
-                        <Text style={styles.tileControlButtonText}>Copy</Text>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity 
-                        style={[styles.tileControlButton, styles.deleteButton]}
-                        onPress={() => deleteTile(item.id)}
-                      >
-                        <Text style={styles.tileControlButtonText}>Delete</Text>
-                      </TouchableOpacity>
-                    </View>
-                    
-                    {/* Resize handle */}
-                    <TouchableOpacity 
-                      style={styles.resizeHandle}
-                      onPressIn={() => {
-                        // Create a resize pan responder
-                        const resizePanResponder = PanResponder.create({
-                          onStartShouldSetPanResponder: () => true,
-                          onPanResponderMove: (_, gestureState) => {
-                            const newWidth = item.width + gestureState.dx;
-                            const newHeight = item.height + gestureState.dy;
-                            handleResize(item.id, newWidth, newHeight);
-                          },
-                          onPanResponderRelease: () => {}
-                        });
-                        
-                        // Apply the resize pan responder
-                        resizePanResponder?.panHandlers?.onResponderGrant();
-                      }}
-                    >
-                      <View style={styles.resizeHandleIcon} />
-                    </TouchableOpacity>
-                    
-                    {/* Rotate handle */}
-                    <TouchableOpacity 
-                      style={styles.rotateHandle}
-                      onPressIn={() => {
-                        // Create a rotation pan responder
-                        const rotatePanResponder = PanResponder.create({
-                          onStartShouldSetPanResponder: () => true,
-                          onPanResponderMove: (_, gestureState) => {
-                            const newRotation = (item.rotation + gestureState.dx) % 360;
-                            handleRotate(item.id, newRotation);
-                          },
-                          onPanResponderRelease: () => {}
-                        });
-                        
-                        // Apply the rotation pan responder
-                        rotatePanResponder.panHandlers.onResponderGrant();
-                      }}
-                    >
-                      <View style={styles.rotateHandleIcon} />
-                    </TouchableOpacity>
-                  </Animated.View>
-                );
-              })}
+              {renderTiles()}
             </>
           )}
         </View>
@@ -570,60 +545,55 @@ export default function DetailsScreen({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.secondary,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#EEEEEE',
+    backgroundColor: 'white',
   },
   backButton: {
     padding: 8,
   },
   backButtonText: {
-    fontSize: 16,
-    fontFamily: FONTS.medium,
+    fontSize: 18,
     color: COLORS.primary,
+    fontWeight: 'bold',
   },
   headerTitle: {
     fontSize: 18,
-    fontFamily: FONTS.bold,
+    fontWeight: 'bold',
     color: COLORS.text,
-    marginLeft: 12,
   },
   scrollContainer: {
     minWidth: windowWidth,
-    minHeight: windowHeight - 100,
+    minHeight: windowHeight - 150,
   },
   workspaceContainer: {
-    width: windowWidth * 3, // Make it thrice as wide for horizontal scrolling
-    height: windowHeight - 100,
-    backgroundColor: '#FFFFFF',
+    width: windowWidth,
+    height: windowHeight - 150,
+    backgroundColor: '#F9F9F9',
     position: 'relative',
+    overflow: 'hidden',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    fontFamily: FONTS.medium,
-    color: COLORS.lightText,
-  },
-  draggableTile: {
+  tile: {
     position: 'absolute',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: '#FFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#DDD',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
+    padding: 10,
   },
   tileContent: {
     flex: 1,
@@ -632,9 +602,23 @@ const styles = StyleSheet.create({
   },
   tileText: {
     fontSize: 16,
-    fontFamily: FONTS.regular,
     color: COLORS.text,
     textAlign: 'center',
+  },
+  noTilesContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noTilesText: {
+    fontSize: 18,
+    color: '#888',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: COLORS.text,
+    textAlign: 'center',
+    marginTop: 40,
   },
   linkContainer: {
     padding: 8,
@@ -680,14 +664,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     bottom: 0,
-    width: 20,
-    height: 20,
+    width: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderTopLeftRadius: 8,
+    zIndex: 10,
   },
   resizeHandleIcon: {
-    width: 10,
-    height: 10,
+    width: 12,
+    height: 12,
     borderBottomWidth: 2,
     borderRightWidth: 2,
     borderColor: COLORS.primary,
@@ -696,14 +683,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     top: 0,
-    width: 20,
-    height: 20,
+    width: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderBottomLeftRadius: 8,
+    zIndex: 10,
   },
   rotateHandleIcon: {
-    width: 10,
-    height: 10,
+    width: 12,
+    height: 12,
     borderTopWidth: 2,
     borderRightWidth: 2,
     borderColor: COLORS.primary,
@@ -818,5 +808,7 @@ const styles = StyleSheet.create({
   modalAddBtnText: {
     fontFamily: FONTS.medium,
     color: '#FFFFFF',
-  },
+  }
 });
+
+export default DetailsScreen;

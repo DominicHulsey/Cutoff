@@ -341,7 +341,7 @@ export default function HomeScreen({ navigation }: Props) {
                 <TouchableOpacity 
           style={styles.animateButton}
           onPress={async() => {
-          await AsyncStorage.setItem('tiles', '');
+          await AsyncStorage.clear()
           setTiles(defaultTiles);
           }}
           disabled={isAnimating}
