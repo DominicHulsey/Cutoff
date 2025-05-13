@@ -213,6 +213,7 @@ export default function HomeScreen({ navigation }: Props) {
   };
 
   const handleAddTile = () => {
+    
     if (!newTile.title || !newTile.subtitle) {
       Alert.alert('Missing Information', 'Please provide both a title and subtitle.');
       return;
@@ -256,7 +257,13 @@ export default function HomeScreen({ navigation }: Props) {
   const renderTile = ({ item, index }: { item: Tile, index: number }) => {
     // Use existing animation for existing cards, create new one for new cards
     const animation = index < cardAnimations.length ? cardAnimations[index] : new Animated.Value(0);
-    
+    if (item.id === 'add') {
+  return (
+    <TouchableOpacity onPress={showForm} style={styles.card}>
+      <Text style={styles.cardText}>Add New Card</Text>
+    </TouchableOpacity>
+  );
+}
     return (
       <Animated.View
         style={[
@@ -285,8 +292,15 @@ export default function HomeScreen({ navigation }: Props) {
               <Text style={styles.cardText}>{item.title}</Text>
             )}
           </View>
+          <TouchableOpacity 
+  onPress={() => confirmDeleteTile(item.id)}
+>
+  <Text>Delete</Text>
+</TouchableOpacity>
+
           <View style={styles.bracketRight} />
         </TouchableOpacity>
+        
       </Animated.View>
     );
   };
@@ -346,7 +360,7 @@ export default function HomeScreen({ navigation }: Props) {
 
       {/* Cards List */}
       <FlatList
-        data={[...tiles, { id: 'add', title: '', subtitle: '' } as Tile]}
+data={[...tiles, { id: 'add', title: '', subtitle: '', icon: '', color: '' } as Tile]}
         renderItem={renderTile}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.cardsContainer}
