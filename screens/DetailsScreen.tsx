@@ -14,7 +14,6 @@ import {
   PanResponder,
   Linking,
   Pressable,
-  Alert,
 } from 'react-native';
 import {FONTS} from '../src/constants/fonts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -59,11 +58,11 @@ const getYouTubeVideoId = (url: string): string | null => {
 };
 
 // Helper function to get YouTube thumbnail
-const getYouTubeThumbnail = (videoId: string): string => {
-  return `https://img.youtube.com/vi/${videoId}/0.jpg`;
-};
 
-function DetailsScreen({navigation, route}: Props) {
+function DetailsScreen({ navigation, route }: Props) {
+  const [editMode, setEditMode] = useState(false);
+  const rotateRefs = useRef<{ [id: string]: Animated.Value }>({});
+  const backgroundColorRefs = useRef<{ [id: string]: Animated.Value }>({});
   const insets = useSafeAreaInsets();
   const {tile} = route.params;
   const [tiles, setTiles] = useState<CorkTile[]>([]);
@@ -74,7 +73,6 @@ function DetailsScreen({navigation, route}: Props) {
   const scaleRefs = useRef<{[id: string]: Animated.Value}>({});
   const panResponderRefs = useRef<{[id: string]: any}>({});
   const containerRef = useRef<View>(null);
-  const isMounted = useRef(true);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [newType, setNewType] = useState<TileType>('quote');
@@ -88,67 +86,110 @@ function DetailsScreen({navigation, route}: Props) {
   const [editedContent, setEditedContent] = useState('');
   const [editedType, setEditedType] = useState<TileType>('quote');
 
-  const createPanResponder = (tileId: string) => {
-    const onPanResponderRelease = (updates: {
-      id: string;
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      rotation: number;
-    }) => {
-      panRefs.current[updates.id]?.flattenOffset();
-      scaleRefs.current[updates.id]?.setValue(1);
-      panRefs.current[updates.id]?.stopAnimation(
-        (finalValue: {x: number; y: number}) => {
-          const currentTile = tilesRef.current.find(t => t.id === updates.id); // ✅ Use ref
+const createPanResponder = (tileId: string) => {
+  let initialDistance = 1;
+  let initialAngle = 0;
+  let initialScale = 1;
+  let initialRotation = 0;
+  let isDragging = false;
 
-          if (!currentTile) return;
+  return PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => {
+      // Darken the background when dragging starts
+      backgroundColorRefs.current[tileId]?.setValue(0.8);
+      panRefs.current[tileId]?.extractOffset();
+      isDragging = true;
+    },
+    onPanResponderMove: (e, gestureState) => {
+      const touches = e.nativeEvent.touches;
 
-          const nx = Math.max(
-            0,
-            Math.min(finalValue.x, windowWidth - currentTile.width),
-          );
-          const ny = Math.max(
-            0,
-            Math.min(finalValue.y, windowHeight - 150 - currentTile.height),
-          );
-          panRefs.current[updates.id].setValue({x: nx, y: ny});
+      if (touches.length === 1) {
+        // Single finger drag - update position in real-time
+        Animated.event(
+          [null, { dx: panRefs.current[tileId].x, dy: panRefs.current[tileId].y }],
+          { useNativeDriver: false }
+        )(e, gestureState);
+      }
 
-          const updatedTiles = tilesRef.current.map(tileObj =>
-            tileObj.id === currentTile.id
-              ? {...tileObj, x: nx, y: ny}
-              : tileObj,
-          );
-          saveTiles(updatedTiles);
-        },
-      );
-    };
+      if (touches.length === 2) {
+        const [touch1, touch2] = touches;
 
-    return PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        scaleRefs.current[tileId]?.setValue(1.07);
-        panRefs.current[tileId]?.extractOffset();
-      },
-      onPanResponderMove: Animated.event(
-        [null, {dx: panRefs.current[tileId].x, dy: panRefs.current[tileId].y}],
-        {useNativeDriver: false},
-      ),
-      onPanResponderRelease: () => {
-        onPanResponderRelease({
-          id: tileId,
-          x: (panRefs.current[tileId].x as any)._value,
-          y: (panRefs.current[tileId].y as any)._value,
-          width: 0,
-          height: 0,
-          rotation: 0,
-        });
-      },
-    });
-  };
+        const dx = touch2.pageX - touch1.pageX;
+        const dy = touch2.pageY - touch1.pageY;
+
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx);
+
+        if (initialDistance === 1) {
+          initialDistance = distance;
+          initialAngle = angle;
+          initialScale = scaleRefs.current[tileId]?._value || 1;
+          initialRotation = rotateRefs.current[tileId]?._value || 0;
+        }
+
+        const scale = distance / initialDistance * initialScale;
+        const rotation = angle - initialAngle + initialRotation;
+
+        // Apply scale and rotation in real-time
+        scaleRefs.current[tileId]?.setValue(scale);
+        rotateRefs.current[tileId]?.setValue(rotation);
+      }
+    },
+onPanResponderRelease: () => {
+  // Reset background color when interaction ends
+  backgroundColorRefs.current[tileId]?.setValue(1);
+  panRefs.current[tileId]?.flattenOffset();
+  isDragging = false;
+
+  const currentTile = tilesRef.current.find(t => t.id === tileId);
+  if (!currentTile) return;
+
+  // Get the final position values
+  panRefs.current[tileId]?.stopAnimation(pos => {
+    const nx = Math.max(0, Math.min(pos.x, windowWidth - currentTile.width));
+    const ny = Math.max(0, Math.min(pos.y, windowHeight - 150 - currentTile.height));
+
+    // Get current scale and rotation values
+    const scaleVal = scaleRefs.current[tileId]?._value || 1;
+    const rotateVal = rotateRefs.current[tileId]?._value || 0;
+
+    // Calculate new dimensions based on scaling
+    const newWidth = Math.max(60, currentTile.width * scaleVal);
+    const newHeight = Math.max(40, currentTile.height * scaleVal);
+
+    // Update the animated values to match the final position
+    panRefs.current[tileId].setValue({ x: nx, y: ny });
+    scaleRefs.current[tileId].setValue(1);
+
+    // Update the tile data in state
+    const updatedTiles = tilesRef.current.map(tile =>
+      tile.id === tileId
+        ? {
+            ...tile,
+            x: nx,
+            y: ny,
+            width: newWidth,
+            height: newHeight,
+            rotation: rotateVal,
+          }
+        : tile
+    );
+
+    // Save the updated tiles
+    saveTiles(updatedTiles);
+  });
+
+  // Reset values for next interaction
+  initialDistance = 1;
+  initialAngle = 0;
+},
+  });
+};
 
   const loadTiles = async () => {
+    rotateRefs.current[tile.id] = new Animated.Value(tile.rotation || 0);
+    backgroundColorRefs.current[tile.id] = new Animated.Value(1); // 1 is normal, < 1 is darker
     setIsLoading(true);
     try {
       const stored = await AsyncStorage.getItem(storageKey);
@@ -161,7 +202,7 @@ function DetailsScreen({navigation, route}: Props) {
       });
 
       setTiles(loadedTiles);
-      tilesRef.current = loadedTiles; // ✅ Sync ref
+      tilesRef.current = loadedTiles; // Sync ref
     } catch (error) {
       console.error('Error loading tiles:', error);
     }
@@ -196,7 +237,7 @@ function DetailsScreen({navigation, route}: Props) {
     };
   }, []);
 
-const handleAddTile = () => {
+  const handleAddTile = () => {
   if (!newContent.trim()) return;
 
   const newTile: CorkTile = {
@@ -211,9 +252,11 @@ const handleAddTile = () => {
     zIndex: tilesRef.current.length + 1,
   };
 
-  // 🧠 Create pan/scale/responders immediately so it's interactive
+  // Create pan/scale/responders immediately so it's interactive
   panRefs.current[newTile.id] = new Animated.ValueXY({ x: newTile.x, y: newTile.y });
   scaleRefs.current[newTile.id] = new Animated.Value(1);
+  rotateRefs.current[newTile.id] = new Animated.Value(0); // Initialize rotation for new tile
+  backgroundColorRefs.current[newTile.id] = new Animated.Value(1); // Initialize background color
   panResponderRefs.current[newTile.id] = createPanResponder(newTile.id);
 
   const updated = [...tilesRef.current, newTile];
@@ -257,25 +300,7 @@ const handleAddTile = () => {
     }
   };
 
-  const handleResize = (id: string, newWidth: number, newHeight: number) => {
-    const width = Math.max(100, newWidth);
-    const height = Math.max(60, newHeight);
-    const updated = tilesRef.current.map(tile =>
-      tile.id === id ? {...tile, width, height} : tile,
-    );
-    setTiles(updated);
-    tilesRef.current = updated;
-    AsyncStorage.setItem(storageKey, JSON.stringify(updated));
-  };
 
-  const handleRotate = (id: string, newRotation: number) => {
-    const updated = tilesRef.current.map(tile =>
-      tile.id === id ? {...tile, rotation: newRotation} : tile,
-    );
-    setTiles(updated);
-    tilesRef.current = updated;
-    AsyncStorage.setItem(storageKey, JSON.stringify(updated));
-  };
 
   const renderTiles = () => {
     if (tiles.length === 0)
@@ -293,14 +318,22 @@ const handleAddTile = () => {
             width: t.width,
             height: t.height,
             zIndex: t.zIndex,
-            transform: [
-              {translateX: panRefs.current[t.id]?.x || 0},
-              {translateY: panRefs.current[t.id]?.y || 0},
-              {scale: scaleRefs.current[t.id] || 1},
-            ],
+            backgroundColor: backgroundColorRefs.current[t.id]?.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['rgba(230, 230, 230, 1)', 'rgba(255, 255, 255, 1)']
+            }) || 'white',
+transform: [
+  { translateX: panRefs.current[t.id]?.x || 0 },
+  { translateY: panRefs.current[t.id]?.y || 0 },
+  { scale: scaleRefs.current[t.id] || 1 },
+  { rotate: rotateRefs.current[t.id]?.interpolate({
+      inputRange: [-Math.PI, Math.PI],
+      outputRange: ['-180deg', '180deg'],
+    }) || '0deg' }
+],
           },
         ]}
-        {...(panResponderRefs.current[t.id]?.panHandlers || {})}>
+        {...(editMode ? panResponderRefs.current[t.id]?.panHandlers : {})}>
         <View style={styles.tileContent}>
           {t.type === 'quote' && (
             <Text style={styles.tileText}>{t.content}</Text>
@@ -330,22 +363,22 @@ const handleAddTile = () => {
           )}
         </View>
         
-        {/* Tile controls */}
-        <View style={styles.tileControls}>
-          <TouchableOpacity 
-            style={styles.tileControlButton}
-            onPress={() => editTile(t.id, t.type, t.content)}
-          >
-            <Text style={styles.tileControlButtonText}>Edit</Text>
-          </TouchableOpacity>
+        {editMode && (
+          <View style={styles.tileControls}>
+            <TouchableOpacity
+              style={styles.tileControlButton}
+              onPress={() => editTile(t.id, t.type, t.content)}
+            >
+              <Text style={styles.tileControlButtonText}>Edit</Text>
+            </TouchableOpacity>
           
-          <TouchableOpacity 
-            style={[styles.tileControlButton, styles.deleteButton]}
-            onPress={() => deleteTile(t.id)}
-          >
-            <Text style={styles.tileControlButtonText}>Delete</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[styles.tileControlButton, styles.deleteButton]}
+              onPress={() => deleteTile(t.id)}
+            >
+              <Text style={styles.tileControlButtonText}>Delete</Text>
+            </TouchableOpacity>
+          </View>)}
       </Animated.View>
     ));
   };
@@ -361,6 +394,11 @@ const handleAddTile = () => {
         >
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
+        <TouchableOpacity onPress={() => setEditMode(!editMode)}>
+  <Text style={[styles.editToggleText, editMode && { color: 'red' }]}>
+    {editMode ? 'Done' : 'Edit'}
+  </Text>
+</TouchableOpacity>
         <Text style={styles.headerTitle}>{tile.title}</Text>
       </View>
       
@@ -524,6 +562,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.secondary,
   },
+  editToggleText: {
+  padding: 8,
+  fontSize: 16,
+  color: COLORS.primary,
+  fontWeight: 'bold',
+},
   header: {
     flexDirection: 'row',
     alignItems: 'center',
