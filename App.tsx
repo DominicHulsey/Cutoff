@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { NavigationContainer, DefaultTheme, LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text, View, ActivityIndicator, StyleSheet } from 'react-native';
-import HomeScreen from './screens/HomeScreen';
+import HomeScreen from './screens/HomeScreen/HomeScreen';
 import DetailsScreen from './screens/DetailsScreen';
 
 export type RootStackParamList = {

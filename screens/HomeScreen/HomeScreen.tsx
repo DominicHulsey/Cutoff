@@ -16,11 +16,11 @@ import {
   Easing
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { FONTS } from '../src/constants/fonts';
+import { FONTS } from '../../src/constants/fonts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../App';
+import { RootStackParamList } from '../../App';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
