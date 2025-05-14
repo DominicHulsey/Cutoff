@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect} from 'react';
+import React, {useState, useRef, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,11 @@ import {
   PanResponder,
   Linking,
   Pressable,
+  Platform,
+  Image,
+  Alert,
 } from 'react-native';
+import YoutubeIframe from 'react-native-youtube-iframe';
 import {FONTS} from '../src/constants/fonts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -36,7 +40,7 @@ const windowHeight = Dimensions.get('window').height;
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Details'>;
 
-type TileType = 'quote' | 'link' | 'youtube';
+type TileType = 'quote' | 'link' | 'youtube' | 'image';
 
 type CorkTile = {
   id: string;
@@ -56,8 +60,6 @@ const getYouTubeVideoId = (url: string): string | null => {
   const match = url.match(regExp);
   return match && match[2].length === 11 ? match[2] : null;
 };
-
-// Helper function to get YouTube thumbnail
 
 function DetailsScreen({ navigation, route }: Props) {
   const [editMode, setEditMode] = useState(false);
@@ -85,6 +87,26 @@ function DetailsScreen({ navigation, route }: Props) {
   } | null>(null);
   const [editedContent, setEditedContent] = useState('');
   const [editedType, setEditedType] = useState<TileType>('quote');
+  
+  // YouTube player state
+  const [youtubeFullscreen, setYoutubeFullscreen] = useState(false);
+  const [youtubePlayerHeight, setYoutubePlayerHeight] = useState(195); // Default height
+  
+  // Helper function to handle YouTube player state change
+  const onYoutubeStateChange = useCallback((state: string) => {
+    if (state === 'ended') {
+      // Video has ended
+      console.log('video has ended');
+    }
+  }, []);
+
+  // Handle YouTube fullscreen toggle
+  const onYoutubeFullscreenChange = useCallback((isFullscreen: boolean) => {
+    setYoutubeFullscreen(isFullscreen);
+    // Adjust player height based on fullscreen state
+    setYoutubePlayerHeight(isFullscreen ? windowHeight : 195);
+  }, [windowHeight]);
+
 
 const createPanResponder = (tileId: string) => {
   let initialDistance = 1;
@@ -238,36 +260,53 @@ onPanResponderRelease: () => {
   }, []);
 
   const handleAddTile = () => {
-  if (!newContent.trim()) return;
+    if (!newContent.trim()) {
+      return;
+    }
 
-  const newTile: CorkTile = {
-    id: Date.now().toString(),
-    type: newType,
-    content: newContent.trim(),
-    x: 60,
-    y: 60,
-    width: 180,
-    height: 100,
-    rotation: 0,
-    zIndex: tilesRef.current.length + 1,
+    // Validate URL for link, youtube, and image types
+    if ((newType === 'link' || newType === 'youtube' || newType === 'image') && !newContent.startsWith('http')) {
+      Alert.alert('Invalid URL', 'Please enter a valid URL starting with http:// or https://');
+      return;
+    }
+    
+    // For image type, validate that the URL points to an image
+    if (newType === 'image') {
+      const isImageUrl = newContent.match(/\.(jpeg|jpg|gif|png)$/i) !== null;
+      if (!isImageUrl) {
+        Alert.alert('Invalid Image URL', 'Please enter a URL that points to an image file (jpeg, jpg, gif, png)');
+        return;
+      }
+    }
+
+    const newTile: CorkTile = {
+      id: Date.now().toString(),
+      type: newType,
+      content: newContent.trim(),
+      x: 60,
+      y: 60,
+      width: 180,
+      height: 100,
+      rotation: 0,
+      zIndex: tilesRef.current.length + 1,
+    };
+
+    // Create pan/scale/responders immediately so it's interactive
+    panRefs.current[newTile.id] = new Animated.ValueXY({ x: newTile.x, y: newTile.y });
+    scaleRefs.current[newTile.id] = new Animated.Value(1);
+    rotateRefs.current[newTile.id] = new Animated.Value(0); // Initialize rotation for new tile
+    backgroundColorRefs.current[newTile.id] = new Animated.Value(1); // Initialize background color
+    panResponderRefs.current[newTile.id] = createPanResponder(newTile.id);
+
+    const updated = [...tilesRef.current, newTile];
+    setTiles(updated);
+    tilesRef.current = updated;
+
+    AsyncStorage.setItem(storageKey, JSON.stringify(updated));
+    setNewContent('');
+    setNewType('quote');
+    setModalVisible(false);
   };
-
-  // Create pan/scale/responders immediately so it's interactive
-  panRefs.current[newTile.id] = new Animated.ValueXY({ x: newTile.x, y: newTile.y });
-  scaleRefs.current[newTile.id] = new Animated.Value(1);
-  rotateRefs.current[newTile.id] = new Animated.Value(0); // Initialize rotation for new tile
-  backgroundColorRefs.current[newTile.id] = new Animated.Value(1); // Initialize background color
-  panResponderRefs.current[newTile.id] = createPanResponder(newTile.id);
-
-  const updated = [...tilesRef.current, newTile];
-  setTiles(updated);
-  tilesRef.current = updated;
-
-  AsyncStorage.setItem(storageKey, JSON.stringify(updated));
-  setNewContent('');
-  setNewType('quote');
-  setModalVisible(false);
-};
 
   const deleteTile = (id: string) => {
     const updated = tilesRef.current.filter(tile => tile.id !== id);
@@ -349,17 +388,37 @@ transform: [
           )}
           
           {t.type === 'youtube' && (
-            <TouchableOpacity 
-              onPress={() => {
-                const videoId = getYouTubeVideoId(t.content);
-                if (videoId) {
-                  Linking.openURL(`https://www.youtube.com/watch?v=${videoId}`);
-                }
-              }}
-              style={styles.youtubeContainer}
-            >
-              <Text style={styles.linkText}>{t.content}</Text>
-            </TouchableOpacity>
+            <View style={[styles.youtubeContainer, { height: youtubeFullscreen ? youtubePlayerHeight : 'auto' }]}>
+              {getYouTubeVideoId(t.content) ? (
+                <YoutubeIframe
+                  height={youtubePlayerHeight}
+                  width={t.width - 16} // Account for padding
+                  videoId={getYouTubeVideoId(t.content) || ''}
+                  play={false}
+                  onChangeState={onYoutubeStateChange}
+                  onFullscreenChange={onYoutubeFullscreenChange}
+                  webViewProps={{
+                    androidLayerType: Platform.OS === 'android' ? 'hardware' : undefined,
+                  }}
+                />
+              ) : (
+                <TouchableOpacity 
+                  onPress={() => Linking.openURL(t.content)}
+                >
+                  <Text style={styles.linkText}>Invalid YouTube URL: {t.content}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+          
+          {t.type === 'image' && (
+            <View style={styles.imageContainer}>
+              <Image 
+                source={{ uri: t.content }} 
+                style={styles.tileImage} 
+                resizeMode="contain"
+              />
+            </View>
           )}
         </View>
         
@@ -438,26 +497,73 @@ transform: [
             <Text style={styles.modalTitle}>Add New Tile</Text>
             
             <View style={styles.typeRow}>
-              <Pressable 
-                style={[styles.typeBtn, newType === 'quote' && styles.typeBtnActive]}
+              <TouchableOpacity
+                style={[
+                  styles.typeBtn,
+                  newType === 'quote' && styles.typeBtnActive,
+                ]}
                 onPress={() => setNewType('quote')}
               >
-                <Text style={[styles.typeBtnText, newType === 'quote' && styles.typeBtnTextActive]}>Quote</Text>
-              </Pressable>
-              
-              <Pressable 
-                style={[styles.typeBtn, newType === 'link' && styles.typeBtnActive]}
+                <Text
+                  style={[
+                    styles.typeBtnText,
+                    newType === 'quote' && styles.typeBtnTextActive,
+                  ]}
+                >
+                  Quote
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.typeBtn,
+                  newType === 'link' && styles.typeBtnActive,
+                ]}
                 onPress={() => setNewType('link')}
               >
-                <Text style={[styles.typeBtnText, newType === 'link' && styles.typeBtnTextActive]}>Link</Text>
-              </Pressable>
-              
-              <Pressable 
-                style={[styles.typeBtn, newType === 'youtube' && styles.typeBtnActive]}
+                <Text
+                  style={[
+                    styles.typeBtnText,
+                    newType === 'link' && styles.typeBtnTextActive,
+                  ]}
+                >
+                  Link
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.typeBtn,
+                  newType === 'youtube' && styles.typeBtnActive,
+                ]}
                 onPress={() => setNewType('youtube')}
               >
-                <Text style={[styles.typeBtnText, newType === 'youtube' && styles.typeBtnTextActive]}>YouTube</Text>
-              </Pressable>
+                <Text
+                  style={[
+                    styles.typeBtnText,
+                    newType === 'youtube' && styles.typeBtnTextActive,
+                  ]}
+                >
+                  YouTube
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.typeBtn,
+                  newType === 'image' && styles.typeBtnActive,
+                ]}
+                onPress={() => setNewType('image')}
+              >
+                <Text
+                  style={[
+                    styles.typeBtnText,
+                    newType === 'image' && styles.typeBtnTextActive,
+                  ]}
+                >
+                  Image
+                </Text>
+              </TouchableOpacity>
             </View>
             
             <TextInput
@@ -501,26 +607,73 @@ transform: [
             <Text style={styles.modalTitle}>Edit Tile</Text>
             
             <View style={styles.typeRow}>
-              <Pressable 
-                style={[styles.typeBtn, editedType === 'quote' && styles.typeBtnActive]}
+              <TouchableOpacity
+                style={[
+                  styles.typeBtn,
+                  editedType === 'quote' && styles.typeBtnActive,
+                ]}
                 onPress={() => setEditedType('quote')}
               >
-                <Text style={[styles.typeBtnText, editedType === 'quote' && styles.typeBtnTextActive]}>Quote</Text>
-              </Pressable>
-              
-              <Pressable 
-                style={[styles.typeBtn, editedType === 'link' && styles.typeBtnActive]}
+                <Text
+                  style={[
+                    styles.typeBtnText,
+                    editedType === 'quote' && styles.typeBtnTextActive,
+                  ]}
+                >
+                  Quote
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.typeBtn,
+                  editedType === 'link' && styles.typeBtnActive,
+                ]}
                 onPress={() => setEditedType('link')}
               >
-                <Text style={[styles.typeBtnText, editedType === 'link' && styles.typeBtnTextActive]}>Link</Text>
-              </Pressable>
-              
-              <Pressable 
-                style={[styles.typeBtn, editedType === 'youtube' && styles.typeBtnActive]}
+                <Text
+                  style={[
+                    styles.typeBtnText,
+                    editedType === 'link' && styles.typeBtnTextActive,
+                  ]}
+                >
+                  Link
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.typeBtn,
+                  editedType === 'youtube' && styles.typeBtnActive,
+                ]}
                 onPress={() => setEditedType('youtube')}
               >
-                <Text style={[styles.typeBtnText, editedType === 'youtube' && styles.typeBtnTextActive]}>YouTube</Text>
-              </Pressable>
+                <Text
+                  style={[
+                    styles.typeBtnText,
+                    editedType === 'youtube' && styles.typeBtnTextActive,
+                  ]}
+                >
+                  YouTube
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.typeBtn,
+                  editedType === 'image' && styles.typeBtnActive,
+                ]}
+                onPress={() => setEditedType('image')}
+              >
+                <Text
+                  style={[
+                    styles.typeBtnText,
+                    editedType === 'image' && styles.typeBtnTextActive,
+                  ]}
+                >
+                  Image
+                </Text>
+              </TouchableOpacity>
             </View>
             
             <TextInput
@@ -649,6 +802,20 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     width: '100%',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  imageContainer: {
+    padding: 4,
+    backgroundColor: '#E6F7FF',
+    borderRadius: 4,
+    width: '100%',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  tileImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: 2,
   },
   linkText: {
     fontSize: 14,
