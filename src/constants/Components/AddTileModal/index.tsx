@@ -1,7 +1,37 @@
-import {Modal, View, Text, TouchableOpacity, TextInput} from 'react-native';
+import {Modal, View, Text, TouchableOpacity, TextInput, Image, Alert} from 'react-native';
 import styles from '../../../../screens/DetailsScreen/styles';
 import React from 'react';
 import {TileType} from '../../../../screens/DetailsScreen/types';
+import {launchImageLibrary, Asset} from 'react-native-image-picker';
+
+// Function to select an image from the device's photo library
+const selectImage = (
+  setSelectedImage: (image: Asset | null) => void,
+  setNewContent: (content: string) => void,
+) => {
+  const options = {
+    mediaType: 'photo' as const,
+    includeBase64: false,
+    maxHeight: 800,
+    maxWidth: 800,
+  };
+
+  launchImageLibrary(options, response => {
+    if (response.didCancel) {
+      console.log('User cancelled image picker');
+    } else if (response.errorCode) {
+      console.log('ImagePicker Error: ', response.errorMessage);
+      Alert.alert('Error', 'There was an error selecting the image');
+    } else if (response.assets && response.assets.length > 0) {
+      const asset = response.assets[0];
+      setSelectedImage(asset);
+      if (asset.uri) {
+        // Update the new content with the image URI
+        setNewContent(asset.uri);
+      }
+    }
+  });
+};
 
 export const AddTileModal = ({
   modalVisible,
@@ -11,6 +41,8 @@ export const AddTileModal = ({
   newContent,
   setNewContent,
   handleAddTile,
+  selectedImage,
+  setSelectedImage,
 }: {
   modalVisible: boolean;
   setModalVisible: (visible: boolean) => void;
@@ -19,6 +51,8 @@ export const AddTileModal = ({
   newContent: string;
   setNewContent: (content: string) => void;
   handleAddTile: () => void;
+  selectedImage: Asset | null;
+  setSelectedImage: (image: Asset | null) => void;
 }) => {
   return (
     <Modal
@@ -36,7 +70,10 @@ export const AddTileModal = ({
                 styles.typeBtn,
                 newType === 'quote' && styles.typeBtnActive,
               ]}
-              onPress={() => setNewType('quote')}>
+              onPress={() => {
+                setNewType('quote');
+                setSelectedImage(null);
+              }}>
               <Text
                 style={[
                   styles.typeBtnText,
@@ -51,7 +88,10 @@ export const AddTileModal = ({
                 styles.typeBtn,
                 newType === 'link' && styles.typeBtnActive,
               ]}
-              onPress={() => setNewType('link')}>
+              onPress={() => {
+                setNewType('link');
+                setSelectedImage(null);
+              }}>
               <Text
                 style={[
                   styles.typeBtnText,
@@ -66,7 +106,10 @@ export const AddTileModal = ({
                 styles.typeBtn,
                 newType === 'youtube' && styles.typeBtnActive,
               ]}
-              onPress={() => setNewType('youtube')}>
+              onPress={() => {
+                setNewType('youtube');
+                setSelectedImage(null);
+              }}>
               <Text
                 style={[
                   styles.typeBtnText,
@@ -75,38 +118,63 @@ export const AddTileModal = ({
                 YouTube
               </Text>
             </TouchableOpacity>
-
+            
             <TouchableOpacity
               style={[
                 styles.typeBtn,
-                newType === 'image' && styles.typeBtnActive,
+                newType === 'local-image' && styles.typeBtnActive,
               ]}
-              onPress={() => setNewType('image')}>
+              onPress={() => {
+                setNewType('local-image');
+                setNewContent('');
+              }}>
               <Text
                 style={[
                   styles.typeBtnText,
-                  newType === 'image' && styles.typeBtnTextActive,
+                  newType === 'local-image' && styles.typeBtnTextActive,
                 ]}>
                 Image
               </Text>
             </TouchableOpacity>
           </View>
 
-          <TextInput
-            style={styles.input}
-            placeholder={
-              newType === 'quote'
-                ? 'Enter quote text...'
-                : newType === 'link'
-                ? 'Enter URL...'
-                : 'Enter YouTube URL...'
-            }
-            value={newContent}
-            onChangeText={setNewContent}
-            multiline={newType === 'quote'}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+          {newType !== 'local-image' ? (
+            <TextInput
+              style={styles.input}
+              placeholder={
+                newType === 'quote'
+                  ? 'Enter quote text...'
+                  : newType === 'link'
+                  ? 'Enter URL...'
+                  : newType === 'youtube'
+                  ? 'Enter YouTube URL...'
+                  : 'Enter Image URL...'
+              }
+              value={newContent}
+              onChangeText={setNewContent}
+              multiline={newType === 'quote'}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          ) : (
+            <View style={styles.imagePreviewContainer}>
+              {selectedImage && selectedImage.uri ? (
+                <Image
+                  source={{uri: selectedImage.uri}}
+                  style={styles.imagePreview}
+                  resizeMode="cover"
+                />
+              ) : (
+                <TouchableOpacity
+                  style={styles.selectImageButton}
+                  onPress={() => selectImage(setSelectedImage, setNewContent)}>
+                  <Text style={styles.selectImageButtonText}>
+                    Select Image from Library
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
           <View style={styles.modalButtonRow}>
             <TouchableOpacity

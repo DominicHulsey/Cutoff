@@ -13,6 +13,7 @@ import {
   PanResponder,
   Alert,
 } from 'react-native';
+import {Asset} from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
@@ -62,6 +63,9 @@ function DetailsScreen({navigation, route}: Props) {
   // YouTube player state
   const [youtubeFullscreen, setYoutubeFullscreen] = useState(false);
   const [youtubePlayerHeight, setYoutubePlayerHeight] = useState(195); // Default height
+
+  // Image upload state
+  const [selectedImage, setSelectedImage] = useState<Asset | null>(null);
 
   // Helper function to handle YouTube player state change
   const onYoutubeStateChange = useCallback((state: string) => {
@@ -246,13 +250,19 @@ function DetailsScreen({navigation, route}: Props) {
   }, []);
 
   const handleAddTile = () => {
-    if (!newContent.trim()) {
+    // For local-image type, check if an image is selected
+    if (newType === 'local-image') {
+      if (!selectedImage || !selectedImage.uri) {
+        Alert.alert('No Image Selected', 'Please select an image first');
+        return;
+      }
+    } else if (!newContent.trim()) {
       return;
     }
 
     // Validate URL for link, youtube, and image types
     if (
-      (newType === 'link' || newType === 'youtube' || newType === 'image') &&
+      (newType === 'link' || newType === 'youtube') &&
       !newContent.startsWith('http')
     ) {
       Alert.alert(
@@ -263,7 +273,7 @@ function DetailsScreen({navigation, route}: Props) {
     }
 
     // For image type, validate that the URL points to an image
-    if (newType === 'image') {
+    if (newType === 'local-image') {
       const isImageUrl = newContent.match(/\.(jpeg|jpg|gif|png)$/i) !== null;
       if (!isImageUrl) {
         Alert.alert(
@@ -273,11 +283,16 @@ function DetailsScreen({navigation, route}: Props) {
         return;
       }
     }
+    
+    // Use the selected image URI for local-image type
+    const tileContent = newType === 'local-image' && selectedImage?.uri 
+      ? selectedImage.uri 
+      : newContent.trim();
 
     const newTile: CorkTile = {
       id: Date.now().toString(),
       type: newType,
-      content: newContent.trim(),
+      content: tileContent,
       x: 60,
       y: 60,
       width: 180,
@@ -303,6 +318,7 @@ function DetailsScreen({navigation, route}: Props) {
     AsyncStorage.setItem(storageKey, JSON.stringify(updated));
     setNewContent('');
     setNewType('quote');
+    setSelectedImage(null);
     setModalVisible(false);
   };
 
@@ -408,6 +424,8 @@ function DetailsScreen({navigation, route}: Props) {
         newContent={newContent}
         setNewContent={setNewContent}
         handleAddTile={handleAddTile}
+        selectedImage={selectedImage}
+        setSelectedImage={setSelectedImage}
       />
 
       <EditTileModal

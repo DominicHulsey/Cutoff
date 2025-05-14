@@ -114,6 +114,33 @@ export default StyleSheet.create({
     height: 150,
     borderRadius: 2,
   },
+  imagePreviewContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    padding: 12,
+  },
+  imagePreview: {
+    width: '100%',
+    height: 150,
+    borderRadius: 4,
+    marginBottom: 10,
+  },
+  selectImageButton: {
+    backgroundColor: '#E6F7FF',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  selectImageButtonText: {
+    color: COLORS.primary,
+    fontFamily: FONTS.medium,
+    fontSize: 14,
+  },
   linkText: {
     fontSize: 14,
     fontFamily: FONTS.medium,

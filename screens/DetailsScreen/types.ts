@@ -3,7 +3,7 @@ import { RootStackParamList } from "../../App";
 
 export type Props = NativeStackScreenProps<RootStackParamList, 'Details'>;
 
-export type TileType = 'quote' | 'link' | 'youtube' | 'image';
+export type TileType = 'quote' | 'link' | 'youtube' | 'local-image';
 
 export type CorkTile = {
   id: string;
