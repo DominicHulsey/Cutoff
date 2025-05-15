@@ -1,7 +1,0 @@
-app_identifier("com.rewrite.app.us.dom") # Your app's bundle identifier
-apple_id("dominic.hulsey@yahoo.com") # Your Apple ID
-
-# team_id("4LHEX387VL") # Developer Portal Team ID
-
-# For more information about the Appfile, see:
-# https://docs.fastlane.tools/advanced/#appfile
