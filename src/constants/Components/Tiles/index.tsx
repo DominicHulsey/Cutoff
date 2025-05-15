@@ -77,7 +77,7 @@ export const renderTiles = (
           />
         )}
 
-        {t.type === 'local-image' && <ImageTile content={t.content} editMode={editMode} />}
+        {t.type === 'local-image' && <ImageTile content={t.content} editMode={editMode} tileId={t.id} />}
       </View>
 
       {editMode && (

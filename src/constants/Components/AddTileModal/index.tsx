@@ -1,8 +1,9 @@
 import {Modal, View, Text, TouchableOpacity, TextInput, Image, Alert} from 'react-native';
 import styles from '../../../../screens/DetailsScreen/styles';
-import React from 'react';
+import React, { useState } from 'react';
 import {TileType} from '../../../../screens/DetailsScreen/types';
 import {launchImageLibrary, Asset} from 'react-native-image-picker';
+import { ImageCropper } from '../ImageCropper';
 
 // Function to select an image from the device's photo library
 const selectImage = (
@@ -54,6 +55,10 @@ export const AddTileModal = ({
   selectedImage: Asset | null;
   setSelectedImage: (image: Asset | null) => void;
 }) => {
+  // State for image cropping mode
+  const [isCropping, setIsCropping] = useState(false);
+  const [cropShape, setCropShape] = useState<'circle' | 'square' | 'rounded'>('rounded');
+  
   return (
     <Modal
       animationType="fade"
@@ -159,11 +164,45 @@ export const AddTileModal = ({
           ) : (
             <View style={styles.imagePreviewContainer}>
               {selectedImage && selectedImage.uri ? (
-                <Image
-                  source={{uri: selectedImage.uri}}
-                  style={styles.imagePreview}
-                  resizeMode="cover"
-                />
+                isCropping ? (
+                  // Show image cropper when in cropping mode
+                  <ImageCropper 
+                    imageUri={selectedImage.uri} 
+                    onCropComplete={(croppedUri, shape) => {
+                      // Update the image with the cropped version and shape info
+                      // Store the shape information in the URI as a query parameter
+                      const uriWithShape = `${croppedUri}?shape=${shape}`;
+                      setSelectedImage({
+                        ...selectedImage,
+                        uri: uriWithShape
+                      });
+                      setNewContent(uriWithShape);
+                      setCropShape(shape);
+                      setIsCropping(false);
+                      // Set the type to local-image when an image is cropped
+                      setNewType('local-image');
+                    }} 
+                  />
+                ) : (
+                  // Show preview of selected/cropped image
+                  <>
+                    <Image
+                      source={{uri: selectedImage.uri}}
+                      style={[styles.imagePreview, 
+                        cropShape === 'circle' && { borderRadius: 75 },
+                        cropShape === 'rounded' && { borderRadius: 16 }
+                      ]}
+                      resizeMode="cover"
+                    />
+                    <TouchableOpacity
+                      style={[styles.selectImageButton, { marginTop: 10 }]}
+                      onPress={() => setIsCropping(true)}>
+                      <Text style={styles.selectImageButtonText}>
+                        Edit Image
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )
               ) : (
                 <TouchableOpacity
                   style={styles.selectImageButton}

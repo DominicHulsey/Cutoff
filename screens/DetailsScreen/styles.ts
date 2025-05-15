@@ -175,6 +175,74 @@ export default StyleSheet.create({
     fontFamily: FONTS.medium,
     fontSize: 14,
   },
+  // Image cropping and shape selection styles
+  cropContainer: {
+    width: '100%',
+    height: 250,
+    marginBottom: 16,
+    position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+  },
+  cropImageContainer: {
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  cropImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
+  cropOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  cropFrame: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderColor: '#fff',
+    backgroundColor: 'transparent',
+  },
+  cropFrameCircle: {
+    borderRadius: 1000,
+  },
+  cropFrameSquare: {
+    borderRadius: 0,
+  },
+  cropFrameRounded: {
+    borderRadius: 16,
+  },
+  cropControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  cropShapeButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 4,
+    backgroundColor: '#F0F0F0',
+  },
+  cropShapeButtonActive: {
+    backgroundColor: COLORS.primary,
+  },
+  cropShapeButtonText: {
+    fontSize: 12,
+    fontFamily: FONTS.medium,
+    color: COLORS.text,
+  },
+  cropShapeButtonTextActive: {
+    color: '#FFFFFF',
+  },
   linkText: {
     fontSize: 14,
     fontFamily: FONTS.medium,

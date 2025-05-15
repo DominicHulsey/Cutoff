@@ -254,39 +254,22 @@ function DetailsScreen({navigation, route}: Props) {
         Alert.alert('No Image Selected', 'Please select an image first');
         return;
       }
-    } else if (!newContent.trim()) {
-      return;
-    }
-
-    // Validate URL for link, youtube, and image types
-    if (
-      (newType === 'link' || newType === 'youtube') &&
-      !newContent.startsWith('http')
-    ) {
-      Alert.alert(
-        'Invalid URL',
-        'Please enter a valid URL starting with http:// or https://',
-      );
-      return;
-    }
-
-    // For image type, validate that the URL points to an image
-    if (newType === 'local-image') {
-      const isImageUrl = newContent.match(/\.(jpeg|jpg|gif|png)$/i) !== null;
-      if (!isImageUrl) {
+    } else if (newType === 'youtube') {
+      // Validate YouTube URL
+      const videoId = getYouTubeVideoId(newContent);
+      if (!videoId) {
         Alert.alert(
-          'Invalid Image URL',
-          'Please enter a URL that points to an image file (jpeg, jpg, gif, png)',
+          'Invalid YouTube URL',
+          'Please enter a valid YouTube URL',
         );
         return;
       }
+    } else if (newType !== 'quote' && !newContent.trim()) {
+      // For other types, ensure content is not empty
+      Alert.alert('Empty Content', 'Please enter some content');
+      return;
     }
     
-    // Use the selected image URI for local-image type
-    const tileContent = newType === 'local-image' && selectedImage?.uri 
-      ? selectedImage.uri 
-      : newContent.trim();
-
     // Set appropriate initial dimensions based on tile type
     let initialWidth = 180;
     let initialHeight = 100;
@@ -299,10 +282,37 @@ function DetailsScreen({navigation, route}: Props) {
       initialWidth = 320;
       initialHeight = 240;
     } else if (newType === 'local-image') {
-      initialWidth = 250;
-      initialHeight = 200;
+      // For local-image tiles, check if there's shape information in the URI
+      if (selectedImage && selectedImage.uri) {
+        const match = selectedImage.uri.match(/[?&]shape=([^&]+)/);
+        if (match && match[1]) {
+          const shape = match[1];
+          if (shape === 'circle') {
+            // Make circle images square
+            initialWidth = 180;
+            initialHeight = 180;
+          } else if (shape === 'square') {
+            initialWidth = 180;
+            initialHeight = 180;
+          } else {
+            // Rounded rectangle
+            initialWidth = 220;
+            initialHeight = 150;
+          }
+        } else {
+          // Default image size if no shape is specified
+          initialWidth = 250;
+          initialHeight = 200;
+        }
+      }
     }
     
+    // Use the selected image URI for local-image type
+    const tileContent = newType === 'local-image' && selectedImage?.uri 
+      ? selectedImage.uri 
+      : newContent.trim();
+      
+    // Create a new tile with the content from the modal
     const newTile: CorkTile = {
       id: Date.now().toString(),
       type: newType,
