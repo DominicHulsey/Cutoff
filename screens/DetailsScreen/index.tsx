@@ -287,14 +287,30 @@ function DetailsScreen({navigation, route}: Props) {
       ? selectedImage.uri 
       : newContent.trim();
 
+    // Set appropriate initial dimensions based on tile type
+    let initialWidth = 180;
+    let initialHeight = 100;
+    
+    // For link tiles, set a larger initial size to accommodate the preview
+    if (newType === 'link') {
+      initialWidth = 300;
+      initialHeight = 350;
+    } else if (newType === 'youtube') {
+      initialWidth = 320;
+      initialHeight = 240;
+    } else if (newType === 'local-image') {
+      initialWidth = 250;
+      initialHeight = 200;
+    }
+    
     const newTile: CorkTile = {
       id: Date.now().toString(),
       type: newType,
       content: tileContent,
       x: 60,
       y: 60,
-      width: 180,
-      height: 100,
+      width: initialWidth,
+      height: initialHeight,
       rotation: 0,
       zIndex: tilesRef.current.length + 1,
     };

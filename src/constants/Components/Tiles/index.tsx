@@ -36,7 +36,7 @@ export const renderTiles = (
         styles.tile,
         {
           width: t.width,
-          height: t.height,
+          height: t.type === 'link' ? 'auto' : t.height,
           zIndex: t.zIndex,
           backgroundColor:
             backgroundColorRefs.current[t.id]?.interpolate({
@@ -59,9 +59,9 @@ export const renderTiles = (
       ]}
       {...(editMode ? panResponderRefs.current[t.id]?.panHandlers : {})}>
       <View style={styles.tileContent}>
-        {t.type === 'quote' && <QuoteTile content={t.content} />}
+        {t.type === 'quote' && <QuoteTile content={t.content} editMode={editMode} />}
 
-        {t.type === 'link' && <LinkTile content={t.content} />}
+        {t.type === 'link' && <LinkTile content={t.content} editMode={editMode} tileId={t.id} />}
 
         {t.type === 'youtube' && (
           <YoutubeTile
@@ -73,10 +73,11 @@ export const renderTiles = (
             onYoutubeFullscreenChange={onYoutubeFullscreenChange}
             getYouTubeVideoId={getYouTubeVideoId}
             tile={t}
+            editMode={editMode}
           />
         )}
 
-        {t.type === 'local-image' && <ImageTile content={t.content} />}
+        {t.type === 'local-image' && <ImageTile content={t.content} editMode={editMode} />}
       </View>
 
       {editMode && (

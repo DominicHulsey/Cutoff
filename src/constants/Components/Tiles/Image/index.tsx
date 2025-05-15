@@ -1,7 +1,7 @@
 import React, {Image, Text, View} from 'react-native';
 import styles from '../../../../../screens/DetailsScreen/styles';
 
-export const ImageTile = (t: {content: string}) => {
+export const ImageTile = (t: {content: string; editMode?: boolean}) => {
   return (
     <View style={styles.imageContainer}>
       <Image

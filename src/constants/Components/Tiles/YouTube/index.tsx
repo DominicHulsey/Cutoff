@@ -14,6 +14,7 @@ export const YoutubeTile = ({
   onYoutubeStateChange,
   onYoutubeFullscreenChange,
   getYouTubeVideoId,
+  editMode,
   tile,
 }: {
   content: string;
@@ -23,6 +24,7 @@ export const YoutubeTile = ({
   onYoutubeStateChange: (state: string) => void;
   onYoutubeFullscreenChange: (fullscreen: boolean) => void;
   getYouTubeVideoId: (content: string) => string | null;
+  editMode?: boolean;
   tile: {
     content: string;
     width: number;
@@ -48,7 +50,10 @@ export const YoutubeTile = ({
           }}
         />
       ) : (
-        <TouchableOpacity onPress={() => Linking.openURL(tile.content)}>
+        <TouchableOpacity 
+          onPress={() => Linking.openURL(tile.content)}
+          disabled={editMode}
+        >
           <Text style={styles.linkText}>
             Invalid YouTube URL: {tile.content}
           </Text>
