@@ -21,11 +21,21 @@ jobs:
           ruby-version: '3.2'
           bundler-cache: true
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'yarn'
+
+      - name: Install JavaScript dependencies
+        run: |
+          yarn install --frozen-lockfile
+
       - name: Install dependencies
         run: |
           cd ios
           bundle install
-          bundle exec pod install
+          ./update-pods.sh
 
       - name: Run tests
         run: |
@@ -62,7 +72,7 @@ jobs:
         run: |
           cd ios
           bundle install
-          bundle exec pod install
+          ./update-pods.sh
 
       - name: Setup provisioning profiles
         env:
@@ -117,7 +127,7 @@ jobs:
         run: |
           cd ios
           bundle install
-          bundle exec pod install
+          ./update-pods.sh
 
       - name: Download build artifacts
         uses: actions/download-artifact@v3
