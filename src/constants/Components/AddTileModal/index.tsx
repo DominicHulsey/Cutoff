@@ -4,31 +4,73 @@ import React, { useState } from 'react';
 import {TileType} from '../../../../screens/DetailsScreen/types';
 import {launchImageLibrary, Asset} from 'react-native-image-picker';
 import { ImageCropper } from '../ImageCropper';
+import ImageCropPicker from 'react-native-image-crop-picker';
+import { sleep } from '../../constants';
 
-// Function to select an image from the device's photo library
+// Function to select an image from the device's photo library with optional shape parameter
 const selectImage = (
   setSelectedImage: (image: Asset | null) => void,
   setNewContent: (content: string) => void,
+  shape?: 'circle' | 'square' | 'rounded',
+  handleAddTile?: () => void,
+  setNewType?: (type: TileType) => void
 ) => {
-  const options = {
-    mediaType: 'photo' as const,
-    includeBase64: false,
-    maxHeight: 800,
-    maxWidth: 800,
-  };
-
-  launchImageLibrary(options, response => {
+  launchImageLibrary({mediaType: 'photo'}, async response => {
     if (response.didCancel) {
       console.log('User cancelled image picker');
     } else if (response.errorCode) {
       console.log('ImagePicker Error: ', response.errorMessage);
-      Alert.alert('Error', 'There was an error selecting the image');
+      Alert.alert('Error', 'Failed to pick image: ' + response.errorMessage);
     } else if (response.assets && response.assets.length > 0) {
-      const asset = response.assets[0];
-      setSelectedImage(asset);
-      if (asset.uri) {
-        // Update the new content with the image URI
-        setNewContent(asset.uri);
+      const selectedAsset = response.assets[0];
+      
+      if (selectedAsset.uri && shape) {
+        try {
+          await sleep(750);
+            const croppedImage = await ImageCropPicker.openCropper({
+              path: selectedAsset.uri,
+              width: 200,
+              height: 200,
+              cropperCircleOverlay: shape === 'circle',
+              cropping: true,
+              mediaType: 'photo',
+              includeBase64: false,
+            })
+
+          // No need to add shape to URI anymore, we'll store it separately
+          const imageUri = croppedImage.path;
+        
+          await sleep(500);
+          // Update state with the cropped image
+          setSelectedImage({
+            ...selectedAsset,
+            uri: imageUri
+          });
+          
+          // Store the image URI as content
+          setNewContent(imageUri);
+          
+          // Store the shape information in a custom property
+          // This will be accessed when creating the tile
+          
+          // Set the tile type to local-image if setNewType is provided
+          if (setNewType) {
+            setNewType('local-image');
+          }
+          
+          // Set the type to local-image and add the tile
+          if (handleAddTile) {
+            setTimeout(() => {
+              handleAddTile();
+            }, 100);
+          }
+        } catch (error) {
+          console.error('Error cropping image:', error);
+          Alert.alert('Error', 'Failed to crop the image');
+        }
+      } else if (selectedAsset.uri) {
+        setSelectedImage(selectedAsset);
+        setNewContent(selectedAsset.uri);
       }
     }
   });
@@ -44,6 +86,8 @@ export const AddTileModal = ({
   handleAddTile,
   selectedImage,
   setSelectedImage,
+  cropShape,
+  setCropShape,
 }: {
   modalVisible: boolean;
   setModalVisible: (visible: boolean) => void;
@@ -54,10 +98,11 @@ export const AddTileModal = ({
   handleAddTile: () => void;
   selectedImage: Asset | null;
   setSelectedImage: (image: Asset | null) => void;
+  cropShape: 'circle' | 'square' | 'rounded';
+  setCropShape: (shape: 'circle' | 'square' | 'rounded') => void;
 }) => {
   // State for image cropping mode
   const [isCropping, setIsCropping] = useState(false);
-  const [cropShape, setCropShape] = useState<'circle' | 'square' | 'rounded'>('rounded');
   
   return (
     <Modal
@@ -163,55 +208,43 @@ export const AddTileModal = ({
             />
           ) : (
             <View style={styles.imagePreviewContainer}>
-              {selectedImage && selectedImage.uri ? (
-                isCropping ? (
-                  // Show image cropper when in cropping mode
-                  <ImageCropper 
-                    imageUri={selectedImage.uri} 
-                    onCropComplete={(croppedUri, shape) => {
-                      // Update the image with the cropped version and shape info
-                      // Store the shape information in the URI as a query parameter
-                      const uriWithShape = `${croppedUri}?shape=${shape}`;
-                      setSelectedImage({
-                        ...selectedImage,
-                        uri: uriWithShape
-                      });
-                      setNewContent(uriWithShape);
-                      setCropShape(shape);
-                      setIsCropping(false);
-                      // Set the type to local-image when an image is cropped
-                      setNewType('local-image');
-                    }} 
-                  />
-                ) : (
-                  // Show preview of selected/cropped image
-                  <>
-                    <Image
-                      source={{uri: selectedImage.uri}}
-                      style={[styles.imagePreview, 
-                        cropShape === 'circle' && { borderRadius: 75 },
-                        cropShape === 'rounded' && { borderRadius: 16 }
-                      ]}
-                      resizeMode="cover"
-                    />
-                    <TouchableOpacity
-                      style={[styles.selectImageButton, { marginTop: 10 }]}
-                      onPress={() => setIsCropping(true)}>
-                      <Text style={styles.selectImageButtonText}>
-                        Edit Image
-                      </Text>
-                    </TouchableOpacity>
-                  </>
-                )
-              ) : (
-                <TouchableOpacity
-                  style={styles.selectImageButton}
-                  onPress={() => selectImage(setSelectedImage, setNewContent)}>
-                  <Text style={styles.selectImageButtonText}>
-                    Select Image from Library
-                  </Text>
-                </TouchableOpacity>
-              )}
+              <View style={styles.shapeSelectionContainer}>
+                <Text style={styles.shapeSelectionTitle}>Select Image Shape</Text>
+                <View style={styles.shapeButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.shapeSelectionButton}
+                    onPress={() => {
+                      setCropShape('circle');
+                      // Pass handleAddTile and setNewType to automatically add the tile after cropping
+                      selectImage(setSelectedImage, setNewContent, 'circle', handleAddTile, setNewType);
+                    }}>
+                    <View style={styles.circleShapeIcon} />
+                    <Text style={styles.shapeSelectionText}>Circle</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={styles.shapeSelectionButton}
+                    onPress={() => {
+                      setCropShape('square');
+                      // Pass handleAddTile and setNewType to automatically add the tile after cropping
+                      selectImage(setSelectedImage, setNewContent, 'square', handleAddTile, setNewType);
+                    }}>
+                    <View style={styles.squareShapeIcon} />
+                    <Text style={styles.shapeSelectionText}>Square</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={styles.shapeSelectionButton}
+                    onPress={() => {
+                      setCropShape('rounded');
+                      // Pass handleAddTile and setNewType to automatically add the tile after cropping
+                      selectImage(setSelectedImage, setNewContent, 'rounded', handleAddTile, setNewType);
+                    }}>
+                    <View style={styles.roundedShapeIcon} />
+                    <Text style={styles.shapeSelectionText}>Rounded</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
           )}
 

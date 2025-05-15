@@ -5,3 +5,6 @@ export const COLORS = {
   text: '#333333', // Dark text
   lightText: '#666666', // Secondary text
 };
+
+//@ts-ignore
+export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))

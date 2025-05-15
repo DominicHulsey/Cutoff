@@ -51,7 +51,6 @@ export default StyleSheet.create({
   tile: {
     position: 'absolute',
     backgroundColor: '#FFF',
-    borderRadius: 25,
     borderWidth: 1,
     borderColor: '#DDD',
     shadowColor: '#000',
@@ -175,6 +174,60 @@ export default StyleSheet.create({
     fontFamily: FONTS.medium,
     fontSize: 14,
   },
+  // Shape selection styles
+  shapeSelectionContainer: {
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  shapeSelectionTitle: {
+    fontSize: 16,
+    fontFamily: FONTS.medium,
+    color: COLORS.text,
+    marginBottom: 16,
+  },
+  shapeButtonsRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  shapeSelectionButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+  },
+  shapeSelectionText: {
+    marginTop: 6,
+    fontSize: 12,
+    fontFamily: FONTS.medium,
+    color: COLORS.text,
+  },
+  circleShapeIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#E6F7FF',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  squareShapeIcon: {
+    width: 50,
+    height: 50,
+    backgroundColor: '#E6F7FF',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  roundedShapeIcon: {
+    width: 60,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#E6F7FF',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  
   // Image cropping and shape selection styles
   cropContainer: {
     width: '100%',
@@ -242,6 +295,13 @@ export default StyleSheet.create({
   },
   cropShapeButtonTextActive: {
     color: '#FFFFFF',
+  },
+  cropHelperText: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
+    fontFamily: FONTS.regular,
   },
   linkText: {
     fontSize: 14,

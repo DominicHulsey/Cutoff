@@ -5,6 +5,8 @@ export type Props = NativeStackScreenProps<RootStackParamList, 'Details'>;
 
 export type TileType = 'quote' | 'link' | 'youtube' | 'local-image';
 
+export type ImageShape = 'circle' | 'square' | 'rounded';
+
 export type CorkTile = {
   id: string;
   type: TileType;
@@ -15,4 +17,5 @@ export type CorkTile = {
   height: number;
   rotation: number;
   zIndex: number; // Added for stacking order
+  shape?: ImageShape; // Shape for image tiles
 };

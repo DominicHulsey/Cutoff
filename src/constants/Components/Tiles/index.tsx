@@ -35,6 +35,7 @@ export const renderTiles = (
       style={[
         styles.tile,
         {
+          borderRadius: t.shape === 'circle' ? 250 : 25,
           width: t.width,
           height: t.type === 'link' ? 'auto' : t.height,
           zIndex: t.zIndex,
@@ -77,7 +78,7 @@ export const renderTiles = (
           />
         )}
 
-        {t.type === 'local-image' && <ImageTile content={t.content} editMode={editMode} tileId={t.id} />}
+        {t.type === 'local-image' && <ImageTile content={t.content} editMode={editMode} tileId={t.id} shape={t.shape} />}
       </View>
 
       {editMode && (

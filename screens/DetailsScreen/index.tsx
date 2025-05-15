@@ -49,6 +49,7 @@ function DetailsScreen({navigation, route}: Props) {
   const [modalVisible, setModalVisible] = useState(false);
   const [newType, setNewType] = useState<TileType>('quote');
   const [newContent, setNewContent] = useState('');
+  const [cropShape, setCropShape] = useState<'circle' | 'square' | 'rounded'>('rounded');
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingTile, setEditingTile] = useState<{
     id: string;
@@ -282,28 +283,27 @@ function DetailsScreen({navigation, route}: Props) {
       initialWidth = 320;
       initialHeight = 240;
     } else if (newType === 'local-image') {
-      // For local-image tiles, check if there's shape information in the URI
+      // For local-image tiles, use the selected shape
       if (selectedImage && selectedImage.uri) {
-        const match = selectedImage.uri.match(/[?&]shape=([^&]+)/);
-        if (match && match[1]) {
-          const shape = match[1];
-          if (shape === 'circle') {
-            // Make circle images square
-            initialWidth = 180;
-            initialHeight = 180;
-          } else if (shape === 'square') {
-            initialWidth = 180;
-            initialHeight = 180;
-          } else {
-            // Rounded rectangle
-            initialWidth = 220;
-            initialHeight = 150;
-          }
+        // Get the current shape from the modal's state
+        const shape = cropShape;
+        
+        if (shape === 'circle') {
+          // Make circle images square
+          initialWidth = 180;
+          initialHeight = 180;
+        } else if (shape === 'square') {
+          initialWidth = 180;
+          initialHeight = 180;
         } else {
-          // Default image size if no shape is specified
-          initialWidth = 250;
-          initialHeight = 200;
+          // Rounded rectangle
+          initialWidth = 220;
+          initialHeight = 150;
         }
+      } else {
+        // Default image size if no shape is specified
+        initialWidth = 250;
+        initialHeight = 200;
       }
     }
     
@@ -323,6 +323,8 @@ function DetailsScreen({navigation, route}: Props) {
       height: initialHeight,
       rotation: 0,
       zIndex: tilesRef.current.length + 1,
+      // Include shape information for image tiles
+      ...(newType === 'local-image' ? { shape: cropShape } : {}),
     };
 
     // Create pan/scale/responders immediately so it's interactive
@@ -347,7 +349,7 @@ function DetailsScreen({navigation, route}: Props) {
   };
 
   const deleteTile = (id: string) => {
-    const updated = tilesRef.current.filter(tile => tile.id !== id);
+    const updated = tilesRef.current.filter((tile: CorkTile) => tile.id !== id);
     setTiles(updated);
     tilesRef.current = updated;
     AsyncStorage.setItem(storageKey, JSON.stringify(updated));
@@ -362,7 +364,7 @@ function DetailsScreen({navigation, route}: Props) {
 
   const saveEditedTile = () => {
     if (editingTile && editedContent.trim()) {
-      const updated = tilesRef.current.map(tile =>
+      const updated = tilesRef.current.map((tile: CorkTile) =>
         tile.id === editingTile.id
           ? {...tile, type: editedType, content: editedContent.trim()}
           : tile,
@@ -450,6 +452,8 @@ function DetailsScreen({navigation, route}: Props) {
         handleAddTile={handleAddTile}
         selectedImage={selectedImage}
         setSelectedImage={setSelectedImage}
+        cropShape={cropShape}
+        setCropShape={setCropShape}
       />
 
       <EditTileModal

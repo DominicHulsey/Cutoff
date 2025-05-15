@@ -16,11 +16,12 @@ type CropShape = 'circle' | 'square' | 'rounded';
 
 interface ImageCropperProps {
   imageUri: string;
+  initialShape?: CropShape;
   onCropComplete: (croppedUri: string, shape: CropShape) => void;
 }
 
-export const ImageCropper = ({ imageUri, onCropComplete }: ImageCropperProps) => {
-  const [shape, setShape] = useState<CropShape>('rounded');
+export const ImageCropper = ({ imageUri, initialShape = 'rounded', onCropComplete }: ImageCropperProps) => {
+  const [shape, setShape] = useState<CropShape>(initialShape);
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   const [frameSize, setFrameSize] = useState({ width: 150, height: 150 });
   
@@ -66,29 +67,6 @@ export const ImageCropper = ({ imageUri, onCropComplete }: ImageCropperProps) =>
   }, [imageUri]);
   
   // Function to crop the image based on current position and shape
-  const cropImage = async () => {
-    try {
-      // Calculate crop area based on current pan position and frame size
-      const xOffset = -(pan.x as unknown as number) + framePosition.x;
-      const yOffset = -(pan.y as unknown as number) + framePosition.y;
-      
-      // Use image-crop-picker to crop the image
-      const croppedImage = await ImageCropPicker.openCropper({
-        path: imageUri,
-        width: frameSize.width,
-        height: frameSize.height,
-        cropperCircleOverlay: shape === 'circle',
-        cropping: true,
-        mediaType: 'photo',
-        includeBase64: false,
-      });
-      
-      // Pass the cropped image URI back to parent
-      onCropComplete(croppedImage.path, shape);
-    } catch (error) {
-      console.error('Error cropping image:', error);
-    }
-  };
   
   // Change the crop shape
   const changeShape = (newShape: CropShape) => {
@@ -196,13 +174,8 @@ export const ImageCropper = ({ imageUri, onCropComplete }: ImageCropperProps) =>
         </TouchableOpacity>
       </View>
       
-      {/* Apply crop button */}
-      <TouchableOpacity
-        style={[styles.selectImageButton, { marginTop: 8 }]}
-        onPress={cropImage}
-      >
-        <Text style={styles.selectImageButtonText}>Apply Crop</Text>
-      </TouchableOpacity>
+      {/* Helper text */}
+      <Text style={styles.cropHelperText}>Move image or change shape, then release to apply</Text>
     </View>
   );
 };
