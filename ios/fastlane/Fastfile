@@ -23,7 +23,7 @@ platform :ios do
       export_method: "app-store",
       export_options: {
         provisioningProfiles: {
-          "com.yourdomain.rewire" => "match AppStore com.yourdomain.rewire"
+          "com.rewrite.app.us.dom" => "match AppStore com.rewrite.app.us.dom"
         }
       },
       silent: false,
