@@ -3,8 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Modal,
-  TextInput,
   ScrollView,
   Dimensions,
   StatusBar,

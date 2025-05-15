@@ -5,6 +5,7 @@ import {LinkTile} from './Link';
 import {QuoteTile} from './Quote';
 import {YoutubeTile} from './YouTube';
 import {CorkTile, TileType} from '../../../../screens/DetailsScreen/types';
+import Icon from 'react-native-vector-icons/Feather';
 
 export const renderTiles = (
   tiles: CorkTile[],
@@ -83,7 +84,7 @@ export const renderTiles = (
           <TouchableOpacity
             style={styles.tileControlButton}
             onPress={() => editTile(t.id, t.type, t.content)}>
-            <Text style={styles.tileControlButtonText}>Edit</Text>
+<Icon name="edit" size={30} color="#900" />
           </TouchableOpacity>
 
           <TouchableOpacity
