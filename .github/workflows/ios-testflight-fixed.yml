@@ -13,38 +13,9 @@ env:
   REACT_NATIVE_MAX_WORKERS: 2
 
 jobs:
-  test:
-    name: Test
-    runs-on: macos-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          bundler-cache: true
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          # No cache specified since we don't have yarn.lock
-
-      - name: Install JavaScript dependencies
-        run: |
-          npm install
-
-      - name: Install dependencies
-        run: |
-          cd ios
-          bundle install
-          ./update-pods.sh
 
   build:
     name: Build
-    needs: test
     runs-on: macos-latest
     steps:
       - name: Checkout repository
@@ -78,6 +49,7 @@ jobs:
         env:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
           GIT_AUTHORIZATION: ${{ secrets.GIT_AUTHORIZATION }}
         run: |
           cd ios
