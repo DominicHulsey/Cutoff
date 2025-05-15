@@ -1,0 +1,8 @@
+{
+  "name": "rewire-ios",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "react-native": "file:../node_modules/react-native"
+  }
+}
