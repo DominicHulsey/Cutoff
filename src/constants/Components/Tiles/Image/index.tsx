@@ -7,7 +7,7 @@ export const ImageTile = (t: {content: string}) => {
       <Image
         source={{uri: t.content}}
         style={styles.tileImage}
-        resizeMode="contain"
+        resizeMode="cover"
       />
     </View>
   );

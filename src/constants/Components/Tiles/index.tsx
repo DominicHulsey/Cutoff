@@ -75,7 +75,7 @@ export const renderTiles = (
           />
         )}
 
-        {t.type === 'image' && <ImageTile content={t.content} />}
+        {t.type === 'local-image' && <ImageTile content={t.content} />}
       </View>
 
       {editMode && (

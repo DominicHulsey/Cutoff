@@ -1,6 +1,6 @@
-import { StyleSheet, Dimensions } from "react-native";
-import { FONTS } from "../../src/constants/fonts";
-import { COLORS } from "../../src/constants/constants";
+import {StyleSheet, Dimensions} from 'react-native';
+import {FONTS} from '../../src/constants/fonts';
+import {COLORS} from '../../src/constants/constants';
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
@@ -10,11 +10,11 @@ export default StyleSheet.create({
     flex: 1,
   },
   editToggleText: {
-  padding: 8,
-  fontSize: 16,
-  color: COLORS.primary,
-  fontWeight: 'bold',
-},
+    padding: 8,
+    fontSize: 16,
+    color: COLORS.primary,
+    fontWeight: 'bold',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -51,7 +51,7 @@ export default StyleSheet.create({
   tile: {
     position: 'absolute',
     backgroundColor: '#FFF',
-    borderRadius: 10,
+    borderRadius: 25,
     borderWidth: 1,
     borderColor: '#DDD',
     shadowColor: '#000',
@@ -59,7 +59,6 @@ export default StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
-    padding: 10,
   },
   tileContent: {
     flex: 1,
@@ -94,25 +93,23 @@ export default StyleSheet.create({
     alignItems: 'center',
   },
   youtubeContainer: {
-    padding: 8,
     backgroundColor: '#FEE2E2',
-    borderRadius: 4,
+    borderRadius: 25,
     width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
     overflow: 'hidden',
   },
   imageContainer: {
-    padding: 4,
     backgroundColor: '#E6F7FF',
-    borderRadius: 4,
+    borderRadius: 20,
     width: '100%',
     alignItems: 'center',
     overflow: 'hidden',
   },
   tileImage: {
     width: '100%',
-    height: 150,
-    borderRadius: 2,
+    height: '100%',
   },
   imagePreviewContainer: {
     width: '100%',

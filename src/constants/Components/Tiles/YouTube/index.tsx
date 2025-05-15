@@ -9,8 +9,6 @@ import styles from '../../../../../screens/DetailsScreen/styles';
 import YoutubeIframe from 'react-native-youtube-iframe';
 
 export const YoutubeTile = ({
-  content,
-  width,
   youtubePlayerHeight,
   youtubeFullscreen,
   onYoutubeStateChange,
@@ -38,8 +36,8 @@ export const YoutubeTile = ({
       ]}>
       {getYouTubeVideoId(tile.content) ? (
         <YoutubeIframe
-          height={youtubePlayerHeight}
-          width={tile.width - 16} // Account for padding
+          height={youtubePlayerHeight - 12}
+          width={tile.width} // Account for padding
           videoId={getYouTubeVideoId(tile.content) || ''}
           play={false}
           onChangeState={onYoutubeStateChange}
