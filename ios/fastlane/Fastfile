@@ -24,7 +24,7 @@ platform :ios do
       skip_profile_detection: true,
       export_options: {
         method: "app-store",
-        signingStyle: "automatic",
+        signingStyle: "manual",
         teamID: "4LHEX387VL"
       },
       silent: false,
