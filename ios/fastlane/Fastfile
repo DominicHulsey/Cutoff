@@ -20,11 +20,12 @@ platform :ios do
       workspace: "Rewire.xcworkspace",
       scheme: "Rewire",
       clean: true,
-      export_method: "app-store",
+      export_method: "development",
+      skip_profile_detection: true,
       export_options: {
-        provisioningProfiles: {
-          "com.rewrite.app.us.dom" => "match AppStore com.rewrite.app.us.dom"
-        }
+        method: "development",
+        signingStyle: "automatic",
+        teamID: "4LHEX387VL"
       },
       silent: false,
       output_directory: "./build",
