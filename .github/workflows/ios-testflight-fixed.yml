@@ -89,7 +89,7 @@ jobs:
           bundle exec fastlane gym --workspace Rewire.xcworkspace --scheme Rewire --clean --output_directory build
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ipa
           path: ios/build/*.ipa
@@ -130,7 +130,7 @@ jobs:
           ./update-pods.sh
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ipa
           path: ios/build
