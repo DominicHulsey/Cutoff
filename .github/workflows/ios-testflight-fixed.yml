@@ -1,0 +1,157 @@
+name: iOS TestFlight Deployment
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  test:
+    name: Test
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          # No cache specified since we don't have yarn.lock
+
+      - name: Install JavaScript dependencies
+        run: |
+          npm install
+
+      - name: Install dependencies
+        run: |
+          cd ios
+          bundle install
+          ./update-pods.sh
+
+      - name: Run tests
+        run: |
+          cd ios
+          bundle exec fastlane test
+
+  build:
+    name: Build
+    needs: test
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed for proper version bumping
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          # No cache specified since we don't have yarn.lock
+
+      - name: Install JavaScript dependencies
+        run: |
+          npm install
+
+      - name: Install dependencies
+        run: |
+          cd ios
+          bundle install
+          ./update-pods.sh
+
+      - name: Setup provisioning profiles
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+          GIT_AUTHORIZATION: ${{ secrets.GIT_AUTHORIZATION }}
+        run: |
+          cd ios
+          bundle exec fastlane sync_signing
+
+      - name: Build app
+        run: |
+          cd ios
+          bundle exec fastlane gym --workspace Rewire.xcworkspace --scheme Rewire --clean --output_directory build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ipa
+          path: ios/build/*.ipa
+          retention-days: 7
+
+  deploy:
+    name: Deploy to TestFlight
+    needs: build
+    runs-on: macos-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production # Requires approval in GitHub environments
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed for proper version bumping
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          # No cache specified since we don't have yarn.lock
+
+      - name: Install JavaScript dependencies
+        run: |
+          npm install
+
+      - name: Install dependencies
+        run: |
+          cd ios
+          bundle install
+          ./update-pods.sh
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: ipa
+          path: ios/build
+
+      - name: Deploy to TestFlight
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+          FASTLANE_PASSWORD: ${{ secrets.FASTLANE_PASSWORD }}
+          FASTLANE_SESSION: ${{ secrets.FASTLANE_SESSION }}
+          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APPLICATION_SPECIFIC_PASSWORD }}
+          GIT_AUTHORIZATION: ${{ secrets.GIT_AUTHORIZATION }}
+        run: |
+          cd ios
+          bundle exec fastlane beta
+
+      - name: Commit version bump
+        if: success()
+        run: |
+          git config --local user.email "github-actions@github.com"
+          git config --local user.name "GitHub Actions"
+          git add -A
+          git commit -m "Build version bump by GitHub Actions [skip ci]" || echo "No changes to commit"
+          git push
