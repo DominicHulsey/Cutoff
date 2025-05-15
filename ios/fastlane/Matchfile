@@ -3,7 +3,10 @@ git_url("https://github.com/DominicHulsey/rewire-certs.git") # Replace with your
 # For GitHub repositories, you can use a personal access token
 # git_basic_authorization(ENV["GIT_AUTHORIZATION"])
 storage_mode("git")
-type("development") # The default type, can be: appstore, adhoc, enterprise or development
+type("appstore") # Using appstore for TestFlight distribution
+
+# Uncomment the line below to use a specific team ID
+team_id("4LHEX387VL") # Your Developer Portal Team ID
 
 app_identifier(["com.rewrite.app.us.dom"]) # Replace with your app's bundle identifier
 username("dominic.hulsey@yahoo.com") # Your Apple ID

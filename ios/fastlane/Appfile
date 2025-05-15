@@ -1,8 +1,7 @@
-app_identifier("com.yourdomain.rewire") # Replace with your app's bundle identifier
-apple_id("your.apple.id@example.com") # Replace with your Apple ID
+app_identifier("com.rewrite.app.us.dom") # Your app's bundle identifier
+apple_id("dominic.hulsey@yahoo.com") # Your Apple ID
 
-itc_team_id("123456789") # App Store Connect Team ID (can be found in App Store Connect URL)
-team_id("ABC123DEF") # Developer Portal Team ID (can be found in developer.apple.com)
+# team_id("4LHEX387VL") # Developer Portal Team ID
 
 # For more information about the Appfile, see:
 # https://docs.fastlane.tools/advanced/#appfile
