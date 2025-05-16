@@ -53,6 +53,8 @@ export default function HomeScreen({ navigation }: Props) {
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [tileToDelete, setTileToDelete] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [tileToEdit, setTileToEdit] = useState<Tile | null>(null);
   
   // Title animations
   const titleOpacity = useRef(new Animated.Value(0.25)).current;
@@ -192,46 +194,175 @@ export default function HomeScreen({ navigation }: Props) {
 
   // Animation functions
   const showForm = () => {
-    setNewTile({ title: '' });
+    openFormForNewTile();
+  };
+
+  // Open form for creating a new tile
+  const openFormForNewTile = () => {
     setFormVisible(true);
-    animatedFormTranslateY.setValue(60); // Reset
+    
+    setIsEditing(false);
+    setTileToEdit(null);
+    setNewTile({})
+    
+    // Reset animations
+    animatedFormOpacity.setValue(0);
+    animatedFormScale.setValue(0.8);
+    animatedBackdropOpacity.setValue(0);
+    animatedFormTranslateY.setValue(60);
+    
+    // Start animations
     Animated.parallel([
-      Animated.timing(animatedBackdropOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-      Animated.timing(animatedFormOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-      Animated.spring(animatedFormScale, { toValue: 1, friction: 8, tension: 40, useNativeDriver: true }),
-      Animated.spring(animatedFormTranslateY, { toValue: 0, friction: 8, tension: 40, useNativeDriver: true }),
+      Animated.timing(animatedBackdropOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true
+      }),
+      Animated.sequence([
+        Animated.delay(150),
+        Animated.parallel([
+          Animated.timing(animatedFormOpacity, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true
+          }),
+          Animated.timing(animatedFormScale, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true
+          }),
+          Animated.timing(animatedFormTranslateY, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true
+          })
+        ])
+      ])
+    ]).start();
+  };
+
+  // Open form for editing an existing tile
+  const openFormForEdit = (tile: Tile) => {
+    setFormVisible(true);
+    setIsEditing(true);
+    setTileToEdit(tile);
+    setNewTile({
+      title: tile.title,
+      icon: tile.icon,
+      color: tile.color
+    });
+    
+    // Reset animations
+    animatedFormOpacity.setValue(0);
+    animatedFormScale.setValue(0.8);
+    animatedBackdropOpacity.setValue(0);
+    animatedFormTranslateY.setValue(60);
+    
+    // Start animations
+    Animated.parallel([
+      Animated.timing(animatedBackdropOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true
+      }),
+      Animated.sequence([
+        Animated.delay(150),
+        Animated.parallel([
+          Animated.timing(animatedFormOpacity, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true
+          }),
+          Animated.timing(animatedFormScale, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true
+          }),
+          Animated.timing(animatedFormTranslateY, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true
+          })
+        ])
+      ])
     ]).start();
   };
 
   const hideForm = () => {
     Animated.parallel([
-      Animated.timing(animatedBackdropOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
-      Animated.timing(animatedFormOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
-      Animated.timing(animatedFormScale, { toValue: 0.8, duration: 200, useNativeDriver: true }),
-      Animated.timing(animatedFormTranslateY, { toValue: 60, duration: 200, useNativeDriver: true }),
-    ]).start(() => setFormVisible(false));
+      Animated.timing(animatedBackdropOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true
+      }),
+      Animated.timing(animatedFormOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true
+      }),
+      Animated.timing(animatedFormScale, {
+        toValue: 0.8,
+        duration: 300,
+        useNativeDriver: true
+      }),
+      Animated.timing(animatedFormTranslateY, {
+        toValue: 60,
+        duration: 300,
+        useNativeDriver: true
+      })
+    ]).start(() => {
+      setFormVisible(false);
+      setIsEditing(false);
+      setTileToEdit(null);
+    });
   };
 
   const handleAddTile = () => {
-    
     if (!newTile.title) {
-      Alert.alert('Missing Information', 'Please provide a title');
+      Alert.alert('Please enter a title');
       return;
     }
-
-    const newTileComplete: Tile = {
-      id: Date.now().toString(),
-      icon: newTile.icon || 'leaf-outline',
-      title: newTile.title,
-      color: COLORS.primary,
-    };
-
-    setTiles(prev => [...prev, newTileComplete]);
-    hideForm();
     
-    setTimeout(() => {
-      navigation.navigate('Details', { tile: newTileComplete });
-    }, 300); 
+    if (isEditing && tileToEdit) {
+      // Update existing tile
+      const updatedTiles = tiles.map(tile => {
+        if (tile.id === tileToEdit.id) {
+          return {
+            ...tile,
+            title: newTile.title || tile.title,
+            icon: newTile.icon || tile.icon,
+            color: newTile.color || tile.color
+          };
+        }
+        return tile;
+      });
+      
+      setTiles(updatedTiles);
+    } else {
+      // Add new tile
+      const newTileWithDefaults: Tile = {
+        id: Date.now().toString(),
+        icon: newTile.icon || 'walk-outline',
+        title: newTile.title,
+        color: newTile.color || COLORS.primary
+      };
+      
+      setTiles(prev => [...prev, newTileWithDefaults]);
+      
+      // Create new animation for the new tile
+      const newAnim = new Animated.Value(0);
+      setCardAnimations(prev => [...prev, newAnim]);
+      
+      // Start animation for the new tile
+      Animated.timing(newAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+        easing: Easing.out(Easing.back(1.5))
+      }).start();
+    }
+    
+    hideForm();
   };
 
   const confirmDeleteTile = (id: string) => {
@@ -280,12 +411,20 @@ export default function HomeScreen({ navigation }: Props) {
           <View style={styles.cardContent}>
             <Text style={styles.cardText}>{item.title}</Text>
           </View>
-          <TouchableOpacity 
-  onPress={() => confirmDeleteTile(item.id)}
->
-  <Text>Delete</Text>
-</TouchableOpacity>
-
+          <View style={styles.cardActions}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => openFormForEdit(item)}
+            >
+              <Text style={styles.actionButtonText}>Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.actionButton, styles.deleteActionButton]}
+              onPress={() => confirmDeleteTile(item.id)}
+            >
+              <Text style={styles.actionButtonText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.bracketRight} />
         </TouchableOpacity>
         
@@ -377,6 +516,8 @@ export default function HomeScreen({ navigation }: Props) {
               },
             ]}
           >            
+            <Text style={styles.formTitle}>{isEditing ? 'Edit Tile' : 'Create a New Tile'}</Text>
+            
             <TextInput
               style={styles.input}
               placeholder="Title"
@@ -389,7 +530,7 @@ export default function HomeScreen({ navigation }: Props) {
               style={styles.rewireButton} 
               onPress={handleAddTile}
             >
-              <Image width={120} height={75} source={require('../../assets/images/create-tile.png')} style={{width: 120, height: 65}}/>
+              <Text style={styles.rewireButtonText}>{isEditing ? 'Update' : 'Create'}</Text>
             </TouchableOpacity>
           </Animated.View>
         </Animated.View>
@@ -542,8 +683,30 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 15,
   },
   cardContent: {
-    width: '60%',
+    width: '50%',
     alignItems: 'center',
+  },
+  cardActions: {
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingRight: 10,
+    height: '100%',
+  },
+  actionButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#2A7D4F',
+    borderRadius: 5,
+    marginVertical: 5,
+  },
+  deleteActionButton: {
+    backgroundColor: '#FF3B30',
+  },
+  actionButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   cardText: {
     fontSize: 22,
