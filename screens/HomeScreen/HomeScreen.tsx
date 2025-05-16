@@ -13,7 +13,8 @@ import {
   Animated,
   Dimensions,
   Modal,
-  Easing
+  Easing,
+  Image
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { FONTS } from '../../src/constants/fonts';
@@ -28,7 +29,6 @@ type Tile = {
   id: string;
   icon: string;
   title: string;
-  subtitle: string;
   color: string;
 };
 
@@ -42,7 +42,7 @@ const COLORS = {
 };
 
 const defaultTiles: Tile[] = [
-  { id: '1', icon: 'walk-outline', title: 'Take a walk', subtitle: 'Clear your mind', color: COLORS.primary },
+  { id: '1', icon: 'walk-outline', title: 'Take a walk', color: COLORS.primary },
 ];
 
 export default function HomeScreen({ navigation }: Props) {
@@ -192,7 +192,7 @@ export default function HomeScreen({ navigation }: Props) {
 
   // Animation functions
   const showForm = () => {
-    setNewTile({ title: '', subtitle: '' });
+    setNewTile({ title: '' });
     setFormVisible(true);
     animatedFormTranslateY.setValue(60); // Reset
     Animated.parallel([
@@ -214,8 +214,8 @@ export default function HomeScreen({ navigation }: Props) {
 
   const handleAddTile = () => {
     
-    if (!newTile.title || !newTile.subtitle) {
-      Alert.alert('Missing Information', 'Please provide both a title and subtitle.');
+    if (!newTile.title) {
+      Alert.alert('Missing Information', 'Please provide a title');
       return;
     }
 
@@ -223,7 +223,6 @@ export default function HomeScreen({ navigation }: Props) {
       id: Date.now().toString(),
       icon: newTile.icon || 'leaf-outline',
       title: newTile.title,
-      subtitle: newTile.subtitle,
       color: COLORS.primary,
     };
 
@@ -257,13 +256,6 @@ export default function HomeScreen({ navigation }: Props) {
   const renderTile = ({ item, index }: { item: Tile, index: number }) => {
     // Use existing animation for existing cards, create new one for new cards
     const animation = index < cardAnimations.length ? cardAnimations[index] : new Animated.Value(0);
-    if (item.id === 'add') {
-  return (
-    <TouchableOpacity onPress={showForm} style={styles.card}>
-      <Text style={styles.cardText}>Add New Card</Text>
-    </TouchableOpacity>
-  );
-}
     return (
       <Animated.View
         style={[
@@ -281,16 +273,12 @@ export default function HomeScreen({ navigation }: Props) {
       >
         <TouchableOpacity
           style={styles.card}
-          onPress={() => item.id === 'add' ? showForm() : navigation.navigate('Details', { tile: item })}
+          onPress={() => navigation.navigate('Details', { tile: item })}
           activeOpacity={0.7}
         >
           <View style={styles.bracketLeft} />
           <View style={styles.cardContent}>
-            {item.id === 'add' ? (
-              <Text style={styles.cardText}>Add New Card</Text>
-            ) : (
-              <Text style={styles.cardText}>{item.title}</Text>
-            )}
+            <Text style={styles.cardText}>{item.title}</Text>
           </View>
           <TouchableOpacity 
   onPress={() => confirmDeleteTile(item.id)}
@@ -331,9 +319,7 @@ export default function HomeScreen({ navigation }: Props) {
             }]}
           />
         </View>
-        <View style={{flexDirection: 'row', gap: 10, position: 'absolute', top: -60}}>
-
-        {/* Animation reset button */}
+        {/* <View style={{flexDirection: 'row', gap: 10, position: 'absolute', top: -60}}>
         <TouchableOpacity 
           style={styles.animateButton}
           onPress={runAnimations}
@@ -355,19 +341,24 @@ export default function HomeScreen({ navigation }: Props) {
             Reset Tiles
           </Text>
         </TouchableOpacity>
-      </View>
+      </View> */}
               </View>
 
-      {/* Cards List */}
       <FlatList
-data={[...tiles, { id: 'add', title: '', subtitle: '', icon: '', color: '' } as Tile]}
+        data={tiles}
         renderItem={renderTile}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.cardsContainer}
         showsVerticalScrollIndicator={false}
       />
       
-      {/* Add Tile Form */}
+      <TouchableOpacity 
+        style={styles.addCardButton}
+        onPress={showForm}
+        activeOpacity={0.7}
+      >
+<Image source={require('../../assets/images/add-new.png')} style={{width: 75, height: 75}} />      </TouchableOpacity>
+      
       {formVisible && (
         <Animated.View 
           style={[styles.formOverlay, { opacity: animatedBackdropOpacity }]}
@@ -385,9 +376,7 @@ data={[...tiles, { id: 'add', title: '', subtitle: '', icon: '', color: '' } as 
                 ],
               },
             ]}
-          >
-            <Text style={styles.formTitle}>Create a New Tile</Text>
-            
+          >            
             <TextInput
               style={styles.input}
               placeholder="Title"
@@ -396,19 +385,11 @@ data={[...tiles, { id: 'add', title: '', subtitle: '', icon: '', color: '' } as 
               placeholderTextColor="#999"
             />
             
-            <TextInput
-              style={styles.input}
-              placeholder="Subtitle"
-              value={newTile.subtitle}
-              onChangeText={text => setNewTile(prev => ({ ...prev, subtitle: text }))}
-              placeholderTextColor="#999"
-            />
-            
             <TouchableOpacity 
               style={styles.rewireButton} 
               onPress={handleAddTile}
             >
-              <Text style={styles.rewireButtonText}>Rewire</Text>
+              <Image width={120} height={75} source={require('../../assets/images/create-tile.png')} style={{width: 120, height: 65}}/>
             </TouchableOpacity>
           </Animated.View>
         </Animated.View>
@@ -451,6 +432,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
+    position: 'relative',
+  },
+  addCardButton: {
+    borderRadius: 10,
+    position: 'absolute',
+    bottom: 60,
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  addCardButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   // Title styles
   titleContainer: {
@@ -572,7 +570,6 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   formContainer: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 24,
     width: '85%',
@@ -592,6 +589,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   input: {
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#DDDDDD',
     borderRadius: 8,
@@ -603,15 +601,15 @@ const styles = StyleSheet.create({
   },
   rewireButton: {
     backgroundColor: '#2A7D4F',
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 30,
-    marginTop: 10,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
     elevation: 4,
+    borderRadius: 10,
   },
   rewireButtonText: {
     color: '#FFFFFF',

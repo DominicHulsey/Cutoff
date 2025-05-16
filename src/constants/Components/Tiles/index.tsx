@@ -1,11 +1,11 @@
 import React, {View, Text, Animated, TouchableOpacity} from 'react-native';
 import styles from '../../../../screens/DetailsScreen/styles';
 import {ImageTile} from './Image';
-import {LinkTile} from './Link/index_old';
 import {QuoteTile} from './Quote';
 import {YoutubeTile} from './YouTube';
 import {CorkTile, TileType} from '../../../../screens/DetailsScreen/types';
 import Icon from 'react-native-vector-icons/Entypo';
+import { LinkTile } from './Link';
 
 export const renderTiles = (
   tiles: CorkTile[],

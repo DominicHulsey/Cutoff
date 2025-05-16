@@ -12,7 +12,6 @@ export type RootStackParamList = {
     id: string;
     icon: string;
     title: string;
-    subtitle: string;
     color: string;
   }};
 };

@@ -117,14 +117,12 @@ export const LinkTile = (t: {
           },
           timeout: 5000,
         });
-        Alert.alert('Link Preview', JSON.stringify(data));
         setPreviewData(data as LinkPreviewData);
         setLoading(false);
 
         // Reset the adjustment flag when we get new preview data
         setHasAdjustedSize(false);
       } catch (err) {
-        console.error('Error fetching link preview:', err);
         setError(true);
         setLoading(false);
       }
