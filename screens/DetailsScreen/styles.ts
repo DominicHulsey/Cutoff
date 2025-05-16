@@ -8,6 +8,7 @@ const windowHeight = Dimensions.get('window').height;
 export default StyleSheet.create({
   container: {
     flex: 1,
+    height: windowHeight,
   },
   editToggleText: {
     padding: 8,
@@ -20,9 +21,24 @@ export default StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#EEEEEE',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bgButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  bgButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: FONTS.medium,
   },
   backButton: {
     padding: 8,
@@ -39,14 +55,23 @@ export default StyleSheet.create({
   },
   scrollContainer: {
     minWidth: windowWidth,
-    minHeight: windowHeight - 150,
+    minHeight: windowHeight + 150,
   },
   workspaceContainer: {
     width: windowWidth,
-    height: windowHeight - 150,
-    backgroundColor: '#F9F9F9',
+    height: windowHeight + 150,
     position: 'relative',
     overflow: 'hidden',
+  },
+  backgroundImage: {
+    opacity: 0.9,
+    resizeMode: 'cover',
+  },
+  workspaceOverlay: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   tile: {
     position: 'absolute',
@@ -481,5 +506,46 @@ export default StyleSheet.create({
   modalAddBtnText: {
     fontFamily: FONTS.medium,
     color: '#FFFFFF',
+  },
+  
+  // Background selector styles
+  bgSelectorContainer: {
+    width: 320,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  bgOptionsList: {
+    marginVertical: 16,
+  },
+  bgOptionButton: {
+    width: 130,
+    height: 130,
+    margin: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    backgroundColor: '#F0F0F0',
+  },
+  bgOptionButtonActive: {
+    borderColor: COLORS.primary,
+  },
+  bgOptionImage: {
+    width: '100%',
+    height: 100,
+    resizeMode: 'cover',
+  },
+  bgOptionText: {
+    textAlign: 'center',
+    paddingVertical: 6,
+    fontSize: 14,
+    fontFamily: FONTS.medium,
+    color: COLORS.text,
   },
 });

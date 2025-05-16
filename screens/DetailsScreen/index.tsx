@@ -10,6 +10,10 @@ import {
   Animated,
   PanResponder,
   Alert,
+  ImageBackground,
+  Modal,
+  FlatList,
+  Image,
 } from 'react-native';
 import {Asset} from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -38,7 +42,27 @@ function DetailsScreen({navigation, route}: Props) {
   const insets = useSafeAreaInsets();
   const {tile} = route.params;
   const [tiles, setTiles] = useState<CorkTile[]>([]);
-  const tilesRef = useRef<CorkTile[]>([]); // ✅ Track live tiles
+  const tilesRef = useRef<CorkTile[]>([]);
+  
+  // Background image state
+  const [backgroundImage, setBackgroundImage] = useState<string>('defaultBG.png');
+  const [bgSelectorVisible, setBgSelectorVisible] = useState(false);
+  
+  // Background image mapping
+  const backgroundImages: {[key: string]: any} = {
+    'defaultBG.png': require('../../assets/images/defaultBG.png'),
+    'blueBG.png': require('../../assets/images/blueBG.png'),
+    'darkGreenBG.png': require('../../assets/images/darkGreenBG.png'),
+    'purpleBG.png': require('../../assets/images/purpleBG.png'),
+  };
+  
+  // Available background options
+  const backgroundOptions = [
+    { id: 'default', name: 'Default', image: 'defaultBG.png' },
+    { id: 'blue', name: 'Blue', image: 'blueBG.png' },
+    { id: 'darkGreen', name: 'Dark Green', image: 'darkGreenBG.png' },
+    { id: 'purple', name: 'Purple', image: 'purpleBG.png' },
+  ]; // ✅ Track live tiles
   const [isLoading, setIsLoading] = useState(true);
   const storageKey = `detail_tiles_${tile.id}`;
   const panRefs = useRef<{[id: string]: Animated.ValueXY}>({});
@@ -198,35 +222,62 @@ function DetailsScreen({navigation, route}: Props) {
   };
 
   const loadTiles = async () => {
-    //@ts-ignore
-    rotateRefs.current[tile.id] = new Animated.Value(tile.rotation || 0);
-    backgroundColorRefs.current[tile.id] = new Animated.Value(1); // 1 is normal, < 1 is darker
-    setIsLoading(true);
     try {
-      const stored = await AsyncStorage.getItem(storageKey);
-      let loadedTiles: CorkTile[] = stored ? JSON.parse(stored) : [];
+      // Load tiles
+      const storedTiles = await AsyncStorage.getItem(storageKey);
+      if (storedTiles) {
+        const parsed = JSON.parse(storedTiles);
+        setTiles(parsed);
+        tilesRef.current = parsed;
 
-      loadedTiles.forEach((t: CorkTile) => {
-        panRefs.current[t.id] = new Animated.ValueXY({x: t.x, y: t.y});
-        scaleRefs.current[t.id] = new Animated.Value(1);
-        panResponderRefs.current[t.id] = createPanResponder(t.id);
-      });
-
-      setTiles(loadedTiles);
-      tilesRef.current = loadedTiles; // Sync ref
+        // Initialize animation refs for each tile
+        parsed.forEach((tile: CorkTile) => {
+          if (!panRefs.current[tile.id]) {
+            panRefs.current[tile.id] = new Animated.ValueXY({x: tile.x, y: tile.y});
+          }
+          if (!scaleRefs.current[tile.id]) {
+            scaleRefs.current[tile.id] = new Animated.Value(1);
+          }
+          if (!rotateRefs.current[tile.id]) {
+            rotateRefs.current[tile.id] = new Animated.Value(tile.rotation);
+          }
+          if (!backgroundColorRefs.current[tile.id]) {
+            backgroundColorRefs.current[tile.id] = new Animated.Value(1);
+          }
+          panResponderRefs.current[tile.id] = createPanResponder(tile.id);
+        });
+      }
+      
+      // Load background image preference
+      const storedBg = await AsyncStorage.getItem(`${storageKey}_background`);
+      if (storedBg) {
+        setBackgroundImage(storedBg);
+      }
     } catch (error) {
       console.error('Error loading tiles:', error);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const saveTiles = async (updated: CorkTile[]) => {
-    setTiles(updated);
-    tilesRef.current = updated; // ✅ Sync ref
     try {
       await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
     } catch (error) {
       console.error('Error saving tiles:', error);
+      Alert.alert('Error', 'Failed to save your changes');
+    }
+  };
+
+  // Save background image preference
+  const saveBackgroundImage = async (imageName: string) => {
+    try {
+      await AsyncStorage.setItem(`${storageKey}_background`, imageName);
+      setBackgroundImage(imageName);
+      setBgSelectorVisible(false);
+    } catch (error) {
+      console.error('Error saving background preference:', error);
+      Alert.alert('Error', 'Failed to save background preference');
     }
   };
 
@@ -387,17 +438,25 @@ function DetailsScreen({navigation, route}: Props) {
         translucent
       />
 
-      <View style={[styles.header, {marginTop: insets.top / 4}]}>
+      <View style={[styles.header]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => setEditMode(!editMode)}>
-          <Text style={[styles.editToggleText, editMode && {color: 'red'}]}>
-            {editMode ? 'Done' : 'Edit'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.bgButton}
+            onPress={() => setBgSelectorVisible(true)}
+          >
+            <Text style={styles.bgButtonText}>Background</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setEditMode(!editMode)}>
+            <Text style={[styles.editToggleText, editMode && {color: 'red'}]}>
+              {editMode ? 'Done' : 'Edit'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -406,30 +465,36 @@ function DetailsScreen({navigation, route}: Props) {
         contentContainerStyle={styles.scrollContainer}
         showsHorizontalScrollIndicator={false}
         showsVerticalScrollIndicator={false}>
-        <View ref={containerRef} style={styles.workspaceContainer}>
-          {isLoading ? (
-            <Text style={styles.loadingText}>Loading...</Text>
-          ) : (
-            <>
-              {renderTiles(
-                tiles,
-                backgroundColorRefs,
-                panRefs,
-                scaleRefs,
-                rotateRefs,
-                editMode,
-                panResponderRefs,
-                editTile,
-                deleteTile,
-                youtubePlayerHeight,
-                youtubeFullscreen,
-                onYoutubeStateChange,
-                onYoutubeFullscreenChange,
-                getYouTubeVideoId,
-              )}
-            </>
-          )}
-        </View>
+        <ImageBackground 
+          source={backgroundImages[backgroundImage]} 
+          style={styles.workspaceContainer}
+          imageStyle={styles.backgroundImage}
+        >
+          <View ref={containerRef} style={styles.workspaceOverlay}>
+            {isLoading ? (
+              <Text style={styles.loadingText}>Loading...</Text>
+            ) : (
+              <>
+                {renderTiles(
+                  tiles,
+                  backgroundColorRefs,
+                  panRefs,
+                  scaleRefs,
+                  rotateRefs,
+                  editMode,
+                  panResponderRefs,
+                  editTile,
+                  deleteTile,
+                  youtubePlayerHeight,
+                  youtubeFullscreen,
+                  onYoutubeStateChange,
+                  onYoutubeFullscreenChange,
+                  getYouTubeVideoId,
+                )}
+              </>
+            )}
+          </View>
+        </ImageBackground>
       </ScrollView>
 
       {editMode && (
@@ -465,6 +530,45 @@ function DetailsScreen({navigation, route}: Props) {
         setEditedContent={setEditedContent}
         saveEditedTile={saveEditedTile}
       />
+      
+      <Modal
+        visible={bgSelectorVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setBgSelectorVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.bgSelectorContainer}>
+            <Text style={styles.modalTitle}>Choose Background</Text>
+            
+            <FlatList
+              data={backgroundOptions}
+              keyExtractor={(item) => item.id}
+              numColumns={2}
+              renderItem={({item}) => (
+                <TouchableOpacity
+                  style={[styles.bgOptionButton, backgroundImage === item.image && styles.bgOptionButtonActive]}
+                  onPress={() => saveBackgroundImage(item.image)}
+                >
+                  <Image 
+                    source={backgroundImages[item.image]} 
+                    style={styles.bgOptionImage} 
+                  />
+                  <Text style={styles.bgOptionText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+              contentContainerStyle={styles.bgOptionsList}
+            />
+            
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              onPress={() => setBgSelectorVisible(false)}
+            >
+              <Text style={styles.modalCancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
