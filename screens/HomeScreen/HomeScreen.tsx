@@ -426,7 +426,6 @@ export default function HomeScreen({ navigation }: Props) {
           </View>
           <View style={styles.bracketRight} />
         </TouchableOpacity>
-        
       </Animated.View>
     );
   };
@@ -514,9 +513,7 @@ export default function HomeScreen({ navigation }: Props) {
                 ],
               },
             ]}
-          >            
-            <Text style={styles.formTitle}>{isEditing ? 'Edit Tile' : 'Create a New Tile'}</Text>
-            
+          >                        
             <TextInput
               style={styles.input}
               placeholder="Title"
@@ -529,7 +526,7 @@ export default function HomeScreen({ navigation }: Props) {
               style={styles.rewireButton} 
               onPress={handleAddTile}
             >
-              <Text style={styles.rewireButtonText}>{isEditing ? 'Update' : 'Create'}</Text>
+              <Image source={require('../../assets/images/create-tile.png')} style={{ width: 110, height: 60 }} />
             </TouchableOpacity>
           </Animated.View>
         </Animated.View>
@@ -690,22 +687,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingRight: 10,
-    height: '100%',
+    height: 75,
   },
   actionButton: {
     paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     backgroundColor: '#2A7D4F',
-    borderRadius: 5,
+    borderRadius: 8,
     marginVertical: 5,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 1},
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+    minWidth: 70,
+    alignItems: 'center',
   },
   deleteActionButton: {
     backgroundColor: '#FF3B30',
   },
   actionButtonText: {
     color: 'white',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 'bold',
+    fontFamily: FONTS.medium,
   },
   cardText: {
     fontSize: 22,

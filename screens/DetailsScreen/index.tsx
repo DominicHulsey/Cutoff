@@ -108,118 +108,138 @@ function DetailsScreen({navigation, route}: Props) {
     [windowHeight],
   );
 
-  const createPanResponder = (tileId: string) => {
-    let initialDistance = 1;
-    let initialAngle = 0;
-    let initialScale = 1;
-    let initialRotation = 0;
-    let isDragging = false;
+  const createPanResponder = useCallback(
+    (tileId: string) => {
+      let initialDistance = 1;
+      let initialAngle = 0;
+      let initialScale = 1;
+      let initialRotation = 0;
+      let isDragging = false;
 
-    return PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        // Darken the background when dragging starts
-        backgroundColorRefs.current[tileId]?.setValue(0.8);
-        panRefs.current[tileId]?.extractOffset();
-        isDragging = true;
-      },
-      onPanResponderMove: (e, gestureState) => {
-        const touches = e.nativeEvent.touches;
+      return PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: () => {
+          // Instead of setting the value, we'll extract the offset to maintain the current position
+          if (panRefs.current[tileId]) {
+            panRefs.current[tileId].extractOffset();
+          }
+          
+          // Highlight the tile being moved
+          Animated.timing(backgroundColorRefs.current[tileId], {
+            toValue: 0.8,
+            duration: 100,
+            useNativeDriver: false,
+          }).start();
 
-        if (touches.length === 1) {
-          // Single finger drag - update position in real-time
-          Animated.event(
-            [
-              null,
-              {dx: panRefs.current[tileId].x, dy: panRefs.current[tileId].y},
-            ],
-            {useNativeDriver: false},
-          )(e, gestureState);
-        }
+          // Scale up slightly
+          Animated.spring(scaleRefs.current[tileId], {
+            toValue: 1.05,
+            friction: 7,
+            useNativeDriver: false,
+          }).start();
+        },
+        onPanResponderMove: (e, gestureState) => {
+          const touches = e.nativeEvent.touches;
 
-        if (touches.length === 2) {
-          const [touch1, touch2] = touches;
-
-          const dx = touch2.pageX - touch1.pageX;
-          const dy = touch2.pageY - touch1.pageY;
-
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          const angle = Math.atan2(dy, dx);
-
-          if (initialDistance === 1) {
-            initialDistance = distance;
-            initialAngle = angle;
-            //@ts-ignore
-            initialScale = scaleRefs.current[tileId]?._value || 1;
-            //@ts-ignore
-            initialRotation = rotateRefs.current[tileId]?._value || 0;
+          if (touches.length === 1) {
+            // Single finger drag - update position in real-time
+            Animated.event(
+              [
+                null,
+                {dx: panRefs.current[tileId].x, dy: panRefs.current[tileId].y},
+              ],
+              {useNativeDriver: false},
+            )(e, gestureState);
           }
 
-          const scale = (distance / initialDistance) * initialScale;
-          const rotation = angle - initialAngle + initialRotation;
+          if (touches.length === 2) {
+            const [touch1, touch2] = touches;
 
-          // Apply scale and rotation in real-time
-          scaleRefs.current[tileId]?.setValue(scale);
-          rotateRefs.current[tileId]?.setValue(rotation);
-        }
-      },
-      onPanResponderRelease: () => {
-        // Reset background color when interaction ends
-        backgroundColorRefs.current[tileId]?.setValue(1);
-        panRefs.current[tileId]?.flattenOffset();
-        isDragging = false;
+            const dx = touch2.pageX - touch1.pageX;
+            const dy = touch2.pageY - touch1.pageY;
 
-        const currentTile = tilesRef.current.find(t => t.id === tileId);
-        if (!currentTile) return;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const angle = Math.atan2(dy, dx);
 
-        // Get the final position values
-        panRefs.current[tileId]?.stopAnimation(pos => {
-          const nx = Math.max(
-            0,
-            Math.min(pos.x, windowWidth - currentTile.width),
-          );
-          const ny = Math.max(
-            0,
-            Math.min(pos.y, windowHeight - 150 - currentTile.height),
-          );
+            if (initialDistance === 1) {
+              initialDistance = distance;
+              initialAngle = angle;
+              //@ts-ignore
+              initialScale = scaleRefs.current[tileId]?._value || 1;
+              //@ts-ignore
+              initialRotation = rotateRefs.current[tileId]?._value || 0;
+            }
 
-          //@ts-ignore
-          const scaleVal = scaleRefs.current[tileId]?._value || 1;
-          //@ts-ignore
-          const rotateVal = rotateRefs.current[tileId]?._value || 0;
+            const scale = (distance / initialDistance) * initialScale;
+            const rotation = angle - initialAngle + initialRotation;
 
-          // Calculate new dimensions based on scaling
-          const newWidth = Math.max(60, currentTile.width * scaleVal);
-          const newHeight = Math.max(40, currentTile.height * scaleVal);
+            // Apply scale and rotation in real-time
+            scaleRefs.current[tileId]?.setValue(scale);
+            rotateRefs.current[tileId]?.setValue(rotation);
+          }
+        },
+        onPanResponderRelease: () => {
+          // Reset background color when interaction ends
+          backgroundColorRefs.current[tileId]?.setValue(1);
+          panRefs.current[tileId]?.flattenOffset();
+          isDragging = false;
 
-          // Update the animated values to match the final position
-          panRefs.current[tileId].setValue({x: nx, y: ny});
-          scaleRefs.current[tileId].setValue(1);
+          const currentTile = tilesRef.current.find(t => t.id === tileId);
+          if (!currentTile) return;
 
-          // Update the tile data in state
-          const updatedTiles = tilesRef.current.map(tile =>
-            tile.id === tileId
-              ? {
-                  ...tile,
-                  x: nx,
-                  y: ny,
-                  width: newWidth,
-                  height: newHeight,
-                  rotation: rotateVal,
-                }
-              : tile,
-          );
+          // Get the final position values
+          panRefs.current[tileId]?.stopAnimation(pos => {
+            const nx = Math.max(
+              0,
+              Math.min(pos.x, windowWidth - currentTile.width),
+            );
+            // Allow dragging all the way to the bottom of the screen
+            // The buttons will overlay the tiles if necessary
+            const ny = Math.max(
+              0,
+              Math.min(pos.y, windowHeight - currentTile.height),
+            );
 
-          // Save the updated tiles
-          saveTiles(updatedTiles);
-        });
+            //@ts-ignore
+            const scaleVal = scaleRefs.current[tileId]?._value || 1;
+            //@ts-ignore
+            const rotateVal = rotateRefs.current[tileId]?._value || 0;
 
-        // Reset values for next interaction
-        initialDistance = 1;
-        initialAngle = 0;
-      },
-    });
-  };
+            // Calculate new dimensions based on scaling
+            const newWidth = Math.max(60, currentTile.width * scaleVal);
+            const newHeight = Math.max(40, currentTile.height * scaleVal);
+
+            // Update the animated values to match the final position
+            panRefs.current[tileId].setValue({x: nx, y: ny});
+            scaleRefs.current[tileId].setValue(1);
+
+            // Update the tile data in state
+            const updatedTiles = tilesRef.current.map(tile =>
+              tile.id === tileId
+                ? {
+                    ...tile,
+                    x: nx,
+                    y: ny,
+                    width: newWidth,
+                    height: newHeight,
+                    rotation: rotateVal,
+                  }
+                : tile,
+            );
+
+            // Save the updated tiles
+            saveTiles(updatedTiles);
+          });
+
+          // Reset values for next interaction
+          initialDistance = 1;
+          initialAngle = 0;
+        },
+      });
+    },
+    [windowWidth, windowHeight],
+  );
 
   const loadTiles = async () => {
     try {
@@ -232,18 +252,11 @@ function DetailsScreen({navigation, route}: Props) {
 
         // Initialize animation refs for each tile
         parsed.forEach((tile: CorkTile) => {
-          if (!panRefs.current[tile.id]) {
-            panRefs.current[tile.id] = new Animated.ValueXY({x: tile.x, y: tile.y});
-          }
-          if (!scaleRefs.current[tile.id]) {
-            scaleRefs.current[tile.id] = new Animated.Value(1);
-          }
-          if (!rotateRefs.current[tile.id]) {
-            rotateRefs.current[tile.id] = new Animated.Value(tile.rotation);
-          }
-          if (!backgroundColorRefs.current[tile.id]) {
-            backgroundColorRefs.current[tile.id] = new Animated.Value(1);
-          }
+          // Always create new animation values to ensure they match the stored positions
+          panRefs.current[tile.id] = new Animated.ValueXY({x: tile.x, y: tile.y});
+          scaleRefs.current[tile.id] = new Animated.Value(1);
+          rotateRefs.current[tile.id] = new Animated.Value(tile.rotation || 0);
+          backgroundColorRefs.current[tile.id] = new Animated.Value(1);
           panResponderRefs.current[tile.id] = createPanResponder(tile.id);
         });
       }
@@ -431,71 +444,68 @@ function DetailsScreen({navigation, route}: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar
-        barStyle="dark-content"
-        backgroundColor="transparent"
-        translucent
+        hidden={true}
       />
-
-      <View style={[styles.header]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <View style={styles.headerActions}>
-          <TouchableOpacity 
-            style={styles.bgButton}
-            onPress={() => setBgSelectorVisible(true)}
-          >
-            <Text style={styles.bgButtonText}>Background</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setEditMode(!editMode)}>
-            <Text style={[styles.editToggleText, editMode && {color: 'red'}]}>
-              {editMode ? 'Done' : 'Edit'}
-            </Text>
-          </TouchableOpacity>
+      
+      <ImageBackground 
+        source={backgroundImages[backgroundImage]} 
+        style={styles.workspaceContainer}
+        imageStyle={styles.backgroundImage}
+      >
+        <View ref={containerRef} style={styles.workspaceOverlay}>
+          {isLoading ? (
+            <Text style={styles.loadingText}>Loading...</Text>
+          ) : (
+            <>
+              {renderTiles(
+                tiles,
+                backgroundColorRefs,
+                panRefs,
+                scaleRefs,
+                rotateRefs,
+                editMode,
+                panResponderRefs,
+                editTile,
+                deleteTile,
+                youtubePlayerHeight,
+                youtubeFullscreen,
+                onYoutubeStateChange,
+                onYoutubeFullscreenChange,
+                getYouTubeVideoId,
+              )}
+            </>
+          )}
         </View>
+      </ImageBackground>
+      
+      {/* Floating Back Button */}
+      <TouchableOpacity
+        style={styles.floatingBackButton}
+        onPress={() => navigation.goBack()}>
+        <Text style={styles.backButtonText}>← Back</Text>
+      </TouchableOpacity>
+      
+      {/* Floating Bottom Buttons */}
+      <View style={styles.floatingBottomButtons}>
+        <TouchableOpacity 
+          style={[styles.editButton]}
+          onPress={() => setBgSelectorVisible(true)}
+        >
+          <Text style={styles.editToggleText}>Background</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.editButton, editMode && styles.editButtonActive]}
+          onPress={() => setEditMode(!editMode)}
+        >
+          <Text style={[styles.editToggleText, editMode && {color: '#FFFFFF'}]}>
+            {editMode ? 'Done' : 'Edit'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      <ScrollView
-        horizontal
-        scrollEnabled={false}
-        contentContainerStyle={styles.scrollContainer}
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}>
-        <ImageBackground 
-          source={backgroundImages[backgroundImage]} 
-          style={styles.workspaceContainer}
-          imageStyle={styles.backgroundImage}
-        >
-          <View ref={containerRef} style={styles.workspaceOverlay}>
-            {isLoading ? (
-              <Text style={styles.loadingText}>Loading...</Text>
-            ) : (
-              <>
-                {renderTiles(
-                  tiles,
-                  backgroundColorRefs,
-                  panRefs,
-                  scaleRefs,
-                  rotateRefs,
-                  editMode,
-                  panResponderRefs,
-                  editTile,
-                  deleteTile,
-                  youtubePlayerHeight,
-                  youtubeFullscreen,
-                  onYoutubeStateChange,
-                  onYoutubeFullscreenChange,
-                  getYouTubeVideoId,
-                )}
-              </>
-            )}
-          </View>
-        </ImageBackground>
-      </ScrollView>
+
 
       {editMode && (
         <TouchableOpacity
@@ -569,7 +579,7 @@ function DetailsScreen({navigation, route}: Props) {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
